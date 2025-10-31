@@ -1,6 +1,6 @@
 # 🏆 Workstream 1: Olist Data Engineering & Feature Enrichment
 
-**Trạng thái:** ✅ **Hoàn thành (Đã Tối ưu hóa V2)**
+**Trạng thái:** ✅ **Hoàn thành (Đã Tối ưu hóa V2 & ML Testing)**
 
 ---
 
@@ -30,7 +30,7 @@ Chúng tôi đã tạo một **Sơ đồ Quan hệ (Schema Diagram)** "tối ưu
 
 ### 2.2. Thực thi Merge & Kiểm tra (Validation)
 
-* **Hành động:** Xây dựng `Notebook 01` (Merge) và `Notebook 02` (Validate/Clean).
+* **Hành động:** Xây dựng `Merge and clean.ipynb` (hợp nhất và làm sạch) và `EDA_featureengineering.ipynb` (phân tích và tạo đặc trưng).
 * **Giải pháp cho Bẫy:** Đã thực hiện `aggregate` (gộp) bảng `order_payments` theo `order_id` **trước khi** merge, ngăn chặn hoàn toàn lỗi nhân dữ liệu.
 * **Kết quả Kiểm tra Toàn vẹn:**
     ```bash
@@ -47,7 +47,7 @@ Sau khi có pipeline V1 cơ bản, chúng tôi đã thực hiện 3 cấp độ 
 ### 3.1. Tối ưu 1: Tái cấu trúc "Production-Ready" 🧩
 
 * **Vấn đề:** Code V1 là các script chạy tuần tự, khó tái sử dụng.
-* **Giải pháp (V2):** Toàn bộ logic đã được **tái cấu trúc (refactored)** thành một pipeline "sạch" (`03_PoC1_Pipeline_Refactored.ipynb`), dựa trên các **hàm (functions)** Python rõ ràng (ví dụ: `load_data()`, `aggregate_payments()`, `merge_core_tables()`, `clean_features()`).
+* **Giải pháp (V2):** Toàn bộ logic đã được **tái cấu trúc (refactored)** thành một pipeline "sạch" (`Completed Pipeline.py`), dựa trên các **hàm (functions)** Python rõ ràng (ví dụ: `load_data()`, `aggregate_payments()`, `merge_tables()`, `create_features()`, `clean_and_impute()`).
 * **Giá trị:** Chứng minh năng lực xây dựng code **mô-đun (modular)** và **tái sử dụng (reusable)**.
 
 ### 3.2. Tối ưu 2: Làm giàu Đặc trưng Nghiệp vụ (Geolocation) 🗺️
@@ -71,15 +71,22 @@ Sau khi có pipeline V1 cơ bản, chúng tôi đã thực hiện 3 cấp độ 
 
 | Tên File                                    | Mục đích |
 |:--------------------------------------------| :--- |
-| `03_PoC1_Pipeline_Refactored.ipynb`         | (Code) Pipeline đã tối ưu hóa, sạch sẽ. |
-| `olist_master_table_CLEAN_OPTIMIZED_v2.csv` | (Data) Bảng Đặc trưng cuối cùng, đã làm giàu. |
-| `Olist_Schema_Execution_Plan.png`           | (Plan) Sơ đồ Schema Diagram đã ghi chú chiến thuật. |
+| `Pipeline_code/Completed Pipeline.py`       | (Code) Pipeline hoàn chỉnh, production-ready với logging và validation. |
+| `Pipeline_code/EDA_featureengineering.ipynb`| (Code) Phân tích khám phá dữ liệu và kỹ thuật đặc trưng. |
+| `Pipeline_code/Merge and clean.ipynb`       | (Code) Hợp nhất và làm sạch dữ liệu ban đầu. |
+| `Pipeline_code/model_test.py`               | (Code) Script test mô hình ML cơ bản trên dữ liệu đã xử lý. |
+| `Pipeline_code/olist_master_table_final.csv`| (Data) Bảng đặc trưng cuối cùng, đã làm giàu và sạch. |
+| `Pipeline_code/olist_master_table_final.parquet`| (Data) Dữ liệu định dạng Parquet hiệu quả cho phân tích lớn. |
+| `Pipeline_code/data/`                        | (Data) Thư mục chứa tất cả 9 file CSV gốc của Olist. |
+| `schema_planning/schema.sql`                | (Plan) Schema SQL tối ưu với ghi chú chiến thuật và xử lý bẫy. |
+| `schema_planning/schemadiagram_olist.jpg`   | (Plan) Sơ đồ quan hệ database với ghi chú execution plan. |
 
 ## 5. 💡 Năng lực đã Chứng minh (Capabilities Demonstrated)
 
 Workstream 1 đã chứng minh đội ngũ có năng lực chuyên sâu về:
 
-* ✅ **Kỹ thuật Dữ liệu (Data Engineering):** Xử lý pipeline dữ liệu quan hệ phức tạp.
-* ✅ **Xử lý Dữ liệu Lớn (Big Data):** Xử lý (aggregate) các bảng lớn (geolocation).
-* ✅ **Tạo Đặc trưng (Feature Engineering):** Tạo ra các đặc trưng nghiệp vụ có giá trị cao (Haversine distance).
-* ✅ **Học thuật (Academic Rigor):** Phát hiện và sửa các lỗi tinh vi (Data Leakage).
+* ✅ **Kỹ thuật Dữ liệu (Data Engineering):** Xử lý pipeline dữ liệu quan hệ phức tạp với 9 bảng CSV.
+* ✅ **Xử lý Dữ liệu Lớn (Big Data):** Xử lý và aggregate các bảng lớn (geolocation 1M+ records).
+* ✅ **Tạo Đặc trưng (Feature Engineering):** Tạo ra 23+ đặc trưng nghiệp vụ có giá trị cao (Haversine distance, time-series features).
+* ✅ **Học thuật (Academic Rigor):** Phát hiện và sửa các lỗi tinh vi (Data Leakage trong time-series).
+* ✅ **Mô hình hóa ML Cơ bản:** Áp dụng LightGBM cho bài toán phân loại review (accuracy ~74%) trên dữ liệu đã xử lý.
