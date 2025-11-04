@@ -1,7 +1,8 @@
 # 🏆 E-GroceryForecaster: Động Cơ Dự Báo Tối Ưu Hóa Kệ Hàng Số tại Việt Nam
 
-[![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)](https://www.python.org/downloads/)
-[![Framework](https://img.shields.io/badge/Models-XGBoost%20%7C%20LightGBM-green.svg)](https://xgboost.readthedocs.io/en/stable/)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Framework](https://img.shields.io/badge/Models-LightGBM%20%7C%20XGBoost-green.svg)](https://lightgbm.readthedocs.io/)
+[![Data](https://img.shields.io/badge/Data-Pandas%20%7C%20Polars-orange.svg)](https://pandas.pydata.org/)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 
 ## 📋 Tổng quan Dự án
@@ -106,13 +107,25 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
 ### 4. Ngăn xếp Công nghệ (Tech Stack)
 
 **Ngôn ngữ & Xử lý Dữ liệu:**
-- Python, Pandas, Polars (để tối ưu hóa xử lý dữ liệu lớn, như kinh nghiệm từ M5)
+- Python 3.8+
+- Pandas, Polars (xử lý dữ liệu lớn và hiệu năng cao)
+- PyArrow (đọc/ghi parquet files)
 
 **Mô hình hóa (Modeling):**
-- LightGBM, Scikit-learn (cho pipeline và đánh giá)
+- LightGBM (mô hình chính cho forecasting)
+- XGBoost (alternative và ensemble)
+- Scikit-learn (preprocessing, metrics)
+- Optuna (hyperparameter tuning)
 
-**Quản lý & Trình diễn:**
-- Git, Jupyter Notebooks, Streamlit (cho dashboard demo chung kết)
+**Visualization & Analysis:**
+- Matplotlib, Seaborn, Plotly
+- Jupyter Lab / Notebook
+- Streamlit (cho dashboard demo)
+
+**Utilities:**
+- Joblib (model serialization)
+- TQDM (progress bars)
+- Git, GitPython
 
 ---
 
@@ -135,87 +148,200 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
     pip install -r requirements.txt
     ```
 
-4.  Chạy các Notebooks chính trong thư mục `/notebooks`:
+4.  Chạy pipeline hoàn chỉnh:
+    ```bash
+    # Chạy toàn bộ pipeline từ đầu đến cuối
+    python src/pipelines/_04_run_pipeline.py
+
+    # Hoặc chạy từng bước riêng lẻ:
+    python src/pipelines/_01_load_data.py           # Tải dữ liệu
+    python src/pipelines/_02_feature_enrichment.py  # Làm giàu đặc trưng
+    python src/pipelines/_03_model_training.py      # Huấn luyện mô hình
+    ```
+
+5.  Khám phá dữ liệu và phát triển:
     ```bash
     jupyter-lab
     ```
-    * `01_EDA_and_Feature_Engineering.ipynb`
-    * `02_Model_Training_XGBoost.ipynb`
-    * `03_Inventory_Logic_Simulation.ipynb`
+    * `notebook/competitiondata_eda.ipynb` - Phân tích dữ liệu cuộc thi
+    * `notebook/baseline_model.ipynb` - Model baseline
+    * `notebook/archieve/` - Các notebook POC từ 4 Workstream
 
 ---
 
-## 5. 📁 Cấu trúc Thư mục (Repository Structure)
+## 4. 🔄 Pipeline Workflow (Luồng Xử Lý)
+
+Dự án sử dụng kiến trúc pipeline modular với 4 giai đoạn chính:
+
+### Giai Đoạn 1: Data Loading (`_01_load_data.py`)
+- Tải dữ liệu thô từ thư mục `data/2_raw/`
+- Hỗ trợ các định dạng CSV phổ biến trong retail
+- Validation cơ bản về schema và missing values
+
+### Giai Đoạn 2: Feature Enrichment (`_02_feature_enrichment.py`)
+Tích hợp 4 Workstream tính đặc trưng:
+
+**WS1 - Relational Features:**
+- Join product information với transaction data
+- Tính household demographics features
+- Campaign participation indicators
+
+**WS2 - Time-Series Features:**
+- Lag features (t-7, t-14, t-28 days)
+- Rolling statistics (mean, std cho 7/14/28 ngày)
+- Calendar features (day of week, holidays)
+
+**WS3 - Behavioral Features:**
+- User session analysis (nếu có clickstream data)
+- Conversion funnel metrics
+- Customer segmentation features
+
+**WS4 - Price & Promotion Features:**
+- Promotion indicators
+- Price elasticity calculations
+- Causal data integration (display/mailer effects)
+
+### Giai Đoạn 3: Model Training (`_03_model_training.py`)
+- Huấn luyện mô hình LightGBM với Quantile Regression
+- Tạo prediction intervals (P10, P50, P90)
+- Feature importance analysis và model validation
+
+### Giai Đoạn 4: Pipeline Orchestration (`_04_run_pipeline.py`)
+- Điều phối toàn bộ workflow
+- Error handling và logging
+- Sequential execution với dependency management
+
+---
+
+## 📊 Trạng Thái Implementation (Current Status)
+
+- ✅ **Data Loading**: Hoàn thành - hỗ trợ Dunnhumby dataset
+- ✅ **WS1 Relational Features**: Hoàn thành - product, household joins
+- ✅ **WS2 Time-Series Features**: Hoàn thành - lag/rolling features
+- ✅ **WS4 Price Features**: Hoàn thành - promotion indicators
+- ⚠️ **WS3 Behavioral Features**: Framework sẵn sàng (chờ clickstream data)
+- ✅ **Model Training**: Hoàn thành - LightGBM với quantile regression
+- ✅ **Pipeline Integration**: Hoàn thành - end-to-end workflow
+
+**Output chính**: `data/3_processed/master_feature_table.parquet`
+
+---
+
+## 6. 📁 Cấu trúc Thư mục (Repository Structure)
+
+```
 📁 E-Grocery_Forecaster/
 │
-├── 📄 .gitignore                 # File quan trọng: Bỏ qua data, models, venv
-├── 📄 README.md                  # Hướng dẫn cài đặt, chạy pipeline và mô tả dự án
-├── 📄 requirements.txt           # Danh sách thư viện (pandas, polars, lgbm...)
+├── 📄 .gitignore                    # Bỏ qua data, models, venv
+├── 📄 README.md                     # Hướng dẫn cài đặt và sử dụng
+├── 📄 requirements.txt              # Danh sách thư viện (pandas, polars, lightgbm, xgboost...)
 │
 ├── 📁 data/
 │   │
-│   ├── 📁 1_poc_data/            # Dữ liệu "kinh điển" cho 4 Workstream
-│   │   ├── ws1_olist/
-│   │   ├── ws2_m5/
-│   │   ├── ws3_retailrocket/
-│   │   └── ws4_dunnhumby/
+│   ├── 📁 1_poc_data/               # Dữ liệu POC cho 4 Workstream
+│   │   ├── 📁 ws1_olist/            # Olist E-commerce dataset
+│   │   ├── 📁 ws2_m5/               # M5 Walmart forecasting dataset
+│   │   ├── 📁 ws3_retailrocket/     # RetailRocket behavioral dataset
+│   │   └── 📁 ws4_dunnhumby/        # Dunnhumby retail dataset
 │   │
-│   ├── 📁 2_raw/                 # Nơi chứa DỮ LIỆU THẬT (của cuộc thi)
-│   │   └── .gitkeep             # Placeholder để giữ thư mục này trên Git
+│   ├── 📁 2_raw/                    # DỮ LIỆU THẬT của cuộc thi
+│   │   ├── campaign_desc.csv
+│   │   ├── campaign_table.csv
+│   │   ├── causal_data.csv
+│   │   ├── coupon_redempt.csv
+│   │   ├── coupon.csv
+│   │   ├── hh_demographic.csv
+│   │   ├── product.csv
+│   │   └── transaction_data.csv
 │   │
-│   └── 📁 3_processed/           # Đầu ra của pipeline: Bảng Master Table
+│   └── 📁 3_processed/              # Đầu ra của pipeline
 │       └── master_feature_table.parquet
 │
-├── 📁 notebooks/                 # Sân chơi & Bản nháp (Nơi thực hiện PoC)
+├── 📁 notebook/                     # Sân chơi & Notebook phân tích
 │   │
-│   ├── 📁 archive/
-│   │   ├── 01_ws1_olist_poc.ipynb           (Notebook PoC 1 của bạn)
-│   │   ├── 02_ws2_m5_poc.ipynb              (Notebook PoC 2 của bạn)
-│   │   ├── 03_ws3_retailrocket_poc.ipynb    (Notebook PoC 3 của bạn)
-│   │   ├── 04_ws4_dunnhumby_poc.ipynb       (Notebook PoC 4 của bạn)
+│   ├── 📁 archieve/                 # Notebook POC từ 4 Workstream
+│   │   ├── ws1_olist_poc.ipynb
+│   │   ├── ws2_m5_poc.ipynb
+│   │   ├── ws3_retailrocket_poc.ipynb
+│   │   └── ws4_dunnhumby_poc.ipynb
 │   │
-│   ├── 📄 05_competition_eda.ipynb    # (Quan trọng) EDA dữ liệu thật (Giảm thiểu Rủi ro 3)
-│   └── 📄 06_baseline_model.ipynb     # (Quan trọng) Chạy baseline (Giảm thiểu Rủi ro 4)
+│   ├── 📄 competitiondata_eda.ipynb # EDA dữ liệu cuộc thi
+│   └── 📄 baseline_model.ipynb      # Model baseline
 │
-├── 📁 src/                     # Code "sạch" (Production) của Giai đoạn 2
-│   │
-│   ├── 📁 features/            # 💡 THƯ VIỆN CODE (Giảm thiểu Rủi ro 1)
-│   │   │   # Đây là nơi chứa các hàm "sạch" rút ra từ 4 PoC
-│   │   ├── 📄 ws1_ecommerce_features.py    (Hàm tính review_score, freight_ratio...)
-│   │   ├── 📄 ws2_timeseries_features.py   (Hàm tạo lag/rolling, event flags...)
-│   │   ├── 📄 ws3_behavior_features.py     (Hàm tính add_to_cart_rate...)
-│   │   └── 📄 ws4_price_features.py        (Hàm tính elasticity...)
-│   │
-│   ├── 📁 pipelines/           # 💡 KIẾN TRÚC SƯ PIPELINE (Giảm thiểu Rủi ro 1)
-│   │   │   # Các script này "gọi" các hàm từ src/features/
-│   │   ├── 📄 01_load_data.py            (Tải dữ liệu "raw" của cuộc thi)
-│   │   ├── 📄 02_feature_enrichment.py   (Tích hợp 4 Workstream, Giảm thiểu Rủi ro 2)
-│   │   ├── 📄 03_model_training.py       (Huấn luyện mô hình cuối cùng)
-│   │   └── 📄 04_run_pipeline.py         (Script chính để chạy 1, 2, 3)
-│   │
-│   └── 📁 utils/
-│       └── 📄 validation.py          (Chứa các hàm kiểm tra chất lượng dữ liệu)
+├── 📁 PoC/                          # Proof of Concepts chi tiết
+│   ├── 📁 WS1 E-commerce/           # WS1: Relational features
+│   ├── 📁 WS2-timeseries/           # WS2: Time-series features
+│   ├── 📁 WS3-behavior/             # WS3: Behavioral features
+│   └── 📁 WS4 -elasticity/          # WS4: Price elasticity features
 │
-├── 📁 models/                  # Nơi lưu các mô hình đã huấn luyện
-│   ├── 📄 final_forecaster.joblib
-│   └── 📄 model_features.json      (Lưu danh sách feature mô hình đã dùng)
+├── 📁 src/                          # Code production sạch
+│   │
+│   ├── 📁 features/                 # Thư viện tính đặc trưng
+│   │   ├── ws1_relational_features.py   # Tính đặc trưng quan hệ
+│   │   ├── ws2_timeseries_features.py   # Tính đặc trưng thời gian
+│   │   ├── ws3_behavior_features.py     # Tính đặc trưng hành vi
+│   │   └── ws4_price_features.py        # Tính đặc trưng giá cả
+│   │
+│   ├── 📁 pipelines/                # Pipeline xử lý dữ liệu
+│   │   ├── _01_load_data.py         # Tải dữ liệu thô
+│   │   ├── _02_feature_enrichment.py # Làm giàu đặc trưng
+│   │   ├── _03_model_training.py    # Huấn luyện mô hình
+│   │   └── _04_run_pipeline.py      # Script chính chạy toàn bộ
+│   │
+│   └── 📁 utils/                    # Utilities
+│       └── validation.py            # Hàm validation dữ liệu
 │
-├── 📁 planning/                # Nơi chứa các PoC/Demo của Workstream 1
-│   ├── 📄 schema.sql
-│   └── 📄 schemadiagram_olist.jpg
-│
-└── 📁 reports/
-    ├── 📁 metrics/             # Nơi lưu kết quả benchmark
-    │   ├── 📄 baseline_metrics.json
-    │   └── 📄 final_model_metrics.json
-    │
-    └── 📄 final_presentation.md  (File .md hoặc .pptx cho Vòng Chung kết)
-## 6. 📈 Đo lường Thành công (Measuring Success)
-
-Thành công của dự án được đo lường trên cả hai mặt: Kỹ thuật và Kinh doanh.
+├── 📁 models/                       # Mô hình đã huấn luyện
+├── 📁 reports/                      # Báo cáo và metrics
+│   └── 📁 metrics/                  # Kết quả đánh giá mô hình
+└── 📁 planning/                     # Tài liệu planning
+```
+## 7. 📈 Đo lường Thành công & Kết Quả (Success Metrics & Results)
 
 ### Chỉ số Kỹ thuật (Technical Metrics)
 
-* **RMSE (Root Mean Squared Error):** Phạt nặng các lỗi dự báo lớn.
-* **MAE (Mean Absolute Error):** Dễ diễn giải (sai lệch trung bình bao nhiêu đơn vị).
-* **WAPE (Weighted Absolute Percentage Error):** Chỉ số chính từ M5, tập trung vào độ chính xác của các SKU quan trọng nhất.
+**Forecasting Accuracy:**
+* **RMSE (Root Mean Squared Error):** Đo lường độ lớn của lỗi dự báo
+* **MAE (Mean Absolute Error):** Sai lệch trung bình tuyệt đối
+* **WAPE (Weighted Absolute Percentage Error):** Metric chính từ M5 competition
+* **Quantile Loss:** Cho prediction intervals (P10, P50, P90)
+
+**Business Impact:**
+* **Inventory Turnover Ratio:** Tối ưu hóa vòng quay tồn kho
+* **Stockout Rate:** Giảm tỷ lệ hết hàng (< 5%)
+* **Waste Reduction:** Giảm lãng phí từ hàng hỏng (~2% doanh thu)
+
+### Kết Quả Hiện Tại (Current Results)
+
+Dự án đã xử lý thành công dataset Dunnhumby với:
+- **2.6M+ transactions** đã được làm giàu đặc trưng
+- **92K+ products** với đầy đủ thông tin phân loại
+- **Pipeline end-to-end** chạy thành công từ raw data đến model predictions
+- **Feature engineering** hoàn chỉnh cho 4 workstreams
+
+### Tiếp Theo (Next Steps)
+
+**Phase 2 - Optimization:**
+- Fine-tuning hyperparameters với Optuna
+- Cross-validation và model selection
+- Business logic implementation (ROP, Safety Stock)
+
+**Phase 3 - Production:**
+- Model deployment và API
+- Real-time forecasting pipeline
+- Dashboard monitoring với Streamlit
+
+---
+
+## 8. 🤝 Đóng Góp & Liên Hệ (Contributing & Contact)
+
+**Cách đóng góp:**
+1. Fork repository
+2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Tạo Pull Request
+
+**Liên hệ:** ducanh0405@gmail.com
+
+**License:** MIT License - xem file `LICENSE` để biết thêm chi tiết.
