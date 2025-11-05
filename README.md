@@ -1,6 +1,6 @@
 # 🏆 E-GroceryForecaster: Động Cơ Dự Báo Tối Ưu Hóa Kệ Hàng Số tại Việt Nam
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![Framework](https://img.shields.io/badge/Models-LightGBM%20%7C%20XGBoost-green.svg)](https://lightgbm.readthedocs.io/)
 [![Data](https://img.shields.io/badge/Data-Pandas%20%7C%20Polars-orange.svg)](https://pandas.pydata.org/)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
