@@ -53,7 +53,28 @@ def enrich_relational_features(
         # Merge Product data
         original_shape = master_df.shape
         master_df = pd.merge(master_df, df_prod, on='PRODUCT_ID', how='left')
+
+        # Check merge success
+        merged_rows = master_df.shape[0] - original_shape[0]
+        matched_products = master_df['MANUFACTURER'].notna().sum()
+
         logging.info(f"  Merged product data: {original_shape} -> {master_df.shape}")
+        logging.info(f"  Product matching: {matched_products:,}/{len(master_df):,} rows have product info")
+
+        if matched_products == 0:
+            logging.error("  ❌ CRITICAL: No products matched! WS1 relational features failed.")
+            logging.error("  💡 Solution: Recreate POC data with PRODUCT_ID matching validation")
+            # Fill with defaults to prevent NaN issues downstream
+            product_cols = ['MANUFACTURER', 'DEPARTMENT', 'BRAND', 'COMMODITY_DESC', 'SUB_COMMODITY_DESC', 'CURR_SIZE_OF_PRODUCT']
+            for col in product_cols:
+                if col in master_df.columns:
+                    master_df[col] = master_df[col].fillna('Unknown')
+            logging.info("  ✅ Filled missing product data with 'Unknown' defaults")
+        elif matched_products < len(master_df) * 0.1:
+            logging.warning(f"  ⚠️  Only {matched_products/len(master_df)*100:.1f}% products have info - limited coverage")
+        else:
+            logging.info(f"  ✅ Good product data coverage: {matched_products/len(master_df)*100:.1f}%")
+
     except pd.errors.MergeError as e:
         logging.error(f"ERROR in WS1 product merge: {e}")
         raise
