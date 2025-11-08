@@ -12,11 +12,12 @@ from typing import Dict, Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
-# Auto-detect data directory (try multiple locations)
+# Auto-detect data directory (configurable for different use cases)
+# Priority: 2_raw (full data) > poc_data (sample data)
 RAW_DATA_DIR: Optional[Path] = None
 for possible_dir in [
-    PROJECT_ROOT / 'data' / 'poc_data',  # POC data (1% sample) - PRIORITY
-    PROJECT_ROOT / 'data' / '2_raw',  # Legacy location
+    PROJECT_ROOT / 'data' / '2_raw',     # Full data - PRIORITY for production
+    PROJECT_ROOT / 'data' / 'poc_data',  # POC data (1% sample) - for testing
 ]:
     if possible_dir.exists() and list(possible_dir.glob('*.csv')):
         RAW_DATA_DIR = possible_dir
@@ -31,23 +32,28 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def load_competition_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
     """
     Load all raw data (Dunnhumby, M5, etc.) from data directory.
-    Auto-detects data location (poc_data, raw/Dunnhumby, or 2_raw).
+    Auto-detects data location with priority: 2_raw (full) > poc_data (sample).
     Reads .csv or .parquet files.
-    
+
     Args:
         data_dir: Optional path to data directory. If None, auto-detects.
-    
+
     Returns:
         Dictionary mapping filename (without extension) to DataFrame
-    
+
     Raises:
         SystemExit: If data directory not found
     """
     if data_dir is None:
         data_dir = RAW_DATA_DIR
-    
+
     logging.info(f"========== [STEP 1: LOAD DATA] ==========")
-    logging.info(f"Starting to load raw data from: {data_dir}")
+    logging.info(f"Data source: {data_dir}")
+    if 'poc_data' in str(data_dir):
+        logging.info("⚠️  Using POC data (1% sample) - for testing only")
+        logging.info("💡 For full production data, ensure files exist in data/2_raw/")
+    else:
+        logging.info("✅ Using full data from data/2_raw/")
     dataframes = {}
     
     if not data_dir.exists():
