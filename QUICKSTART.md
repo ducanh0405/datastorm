@@ -1,8 +1,9 @@
 # 🚀 Quick Start Guide - DataStorm Refactored Pipeline
 
 **Last Updated:** November 9, 2025
-**Status:** Production-Ready
-**Default Data:** POC (1% sample) - optimized for development and testing
+**Status:** Demo-Ready with Interactive Dashboard
+**Default Data:** POC (1% sample) with 100% PRODUCT_ID matching
+**Dashboard:** Available at reports/dashboard/index.html
 
 ---
 
@@ -24,6 +25,9 @@ pytest tests/test_smoke.py -v -m smoke
 
 # 5. Run full pipeline
 python src/pipelines/_04_run_pipeline.py
+
+# 6. Generate interactive dashboard
+python scripts/create_dashboard.py
 ```
 
 ---
@@ -40,10 +44,12 @@ python src/pipelines/_04_run_pipeline.py
 | **Lag Features** | Subtle leakage in rollings | 100% leak-safe (on lagged series) |
 | **Model Type** | Single regression | 3 quantile models (Q05/Q50/Q95) |
 | **Evaluation Metric** | RMSE (wrong for quantile) | Pinball loss (correct) |
-| **Tests** | None | 6 smoke tests + validation script |
-| **Dev Tooling** | None | ruff, black, isort, mypy |
+| **Tests** | None | 6 smoke tests + validation script + comprehensive testing |
+| **Dev Tooling** | None | ruff, black, isort, mypy (removed pre-commit) |
+| **Dashboard** | None | Interactive HTML with Plotly charts |
+| **License** | None | MIT License |
 
-**Bottom Line:** The refactored pipeline is now **leak-safe, probabilistic, and production-ready**.
+**Bottom Line:** The refactored pipeline is now **demo-ready with interactive dashboard, leak-safe, probabilistic, and production-ready**.
 
 ---
 
