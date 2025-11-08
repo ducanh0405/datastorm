@@ -1,41 +1,48 @@
+"""
+Feature Enrichment Pipeline
+===========================
+Orchestrates feature engineering from multiple workstreams (WS0-WS4).
+"""
 import logging
 import sys
 from pathlib import Path
+from typing import Dict
 
-# === XÁC ĐỊNH ĐƯỜNG DẪN GỐC ===
+# === PROJECT ROOT ===
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
-# ===============================
+# ====================
 
-# Cấu hình Logging (chỉ dùng Tiếng Anh/ASCII)
+# Configure Logging (English/ASCII only)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- IMPORT TỪ CÁC THƯ MỤC TRONG src/ ---
+# --- IMPORT FROM src/ MODULES ---
 try:
-    # 1. Import hàm loader cho DỮ LIỆU THẬT (từ data/2_raw/)
+    # Import configuration
+    from src.config import PERFORMANCE_CONFIG
+
+    # 1. Import data loader
     from src.pipelines._01_load_data import load_competition_data
 
-    # 2. Import "THƯ VIỆN CODE" (các hàm đã refactor từ 4 PoC)
-    # Import logic AGGREGATION & GRID (WS0 - NEW!)
+    # 2. Import feature engineering modules (refactored from 4 PoCs)
+    # WS0: Aggregation & Grid - Unified (Polars + Pandas fallback)
+    # ws0_aggregation.py now contains both implementations and auto-selects
     from src.features import ws0_aggregation as ws0
-    # Import logic JOIN của Dunnhumby (WS1)
-    from src.features import ws1_relational_features as ws1
-    
-    # Import logic Time-Series (WS2) - OPTIMIZED VERSION
-    try:
-        from src.features import ws2_timeseries_features_optimized as ws2
-        logging.info("[PIPELINE] Using OPTIMIZED WS2 features (10x speedup)")
-    except ImportError:
-        from src.features import ws2_timeseries_features as ws2
-        logging.warning("[PIPELINE] Using original WS2 (slower). Upgrade recommended.")
-    
-    # Import logic Behavior (WS3)
-    from src.features import ws3_behavior_features as ws3
-    # Import logic Price/Promo (WS4)
-    from src.features import ws4_price_features as ws4
-    
+    logging.info("[PIPELINE] Using WS0 aggregation (auto-selects Polars/pandas)")
 
-    # 3. Import hàm tiện ích validation
+    # WS1: Relational features (Dunnhumby joins)
+    from src.features import ws1_relational_features as ws1
+
+    # WS2: Time-Series features (now optimized by default)
+    from src.features import ws2_timeseries_features as ws2
+    logging.info("[PIPELINE] Using WS2 features (optimized, 10x speedup)")
+
+    # WS3: Behavioral features
+    from src.features import ws3_behavior_features as ws3
+    # WS4: Price/Promotion features
+    from src.features import ws4_price_features as ws4
+
+    # 3. Import validation utilities
     from src.utils.validation import comprehensive_validation
 
 except ImportError as e:
@@ -46,21 +53,24 @@ except ImportError as e:
 
 # ---------------------------------------------
 
-def main():
+def main() -> None:
     """
-    KIẾN TRÚC SƯ PIPELINE (Chạy trên Dunnhumby để test WS1, 2, 4)
-    Tích hợp logic từ 4 Workstream (WS) để xây dựng Master Table cuối cùng.
+    Main pipeline orchestrator for feature enrichment.
+    
+    Integrates logic from 4 Workstreams (WS0-WS4) to build final Master Table.
+    Runs on Dunnhumby dataset to test WS1, WS2, WS4.
     """
-    logging.info("========== STARTING FEATURE ENRICHMENT PIPELINE (WS1+2+3+4) ==========")
+    logging.info("========== STARTING FEATURE ENRICHMENT PIPELINE (WS0+1+2+3+4) ==========")
 
-    # 1. Định nghĩa đường dẫn
+    # 1. Define output paths
     OUTPUT_PROCESSED_DIR = PROJECT_ROOT / 'data' / '3_processed'
     OUTPUT_FILE = OUTPUT_PROCESSED_DIR / 'master_feature_table.parquet'
+    output_csv = OUTPUT_PROCESSED_DIR / 'master_feature_table.csv'
     OUTPUT_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 2. Tải Dữ liệu Thật (từ data/2_raw/ - Đặt Dunnhumby vào đây)
+    # 2. Load Real Data (from data/2_raw/ - Place Dunnhumby data here)
     logging.info("--- (1/6) Loading Competition Data (from data/2_raw/) ---")
-    dataframes = load_competition_data()  # Gọi hàm từ _01_load_data.py
+    dataframes = load_competition_data()  # Call function from _01_load_data.py
 
     if not dataframes or 'transaction_data' not in dataframes:
         logging.critical("Error: 'transaction_data.csv' (main sales file) not found in data/2_raw/.")
@@ -73,17 +83,24 @@ def main():
     try:
         master_df = ws0.prepare_master_dataframe(dataframes['transaction_data'])
         logging.info(f"-> Shape after WS0 (aggregation): {master_df.shape}")
+
+        # CRITICAL FIX: Filter out zero-filled rows to avoid sparse data issues
+        # Only keep rows with actual sales (SALES_VALUE > 0)
+        original_shape = master_df.shape
+        master_df = master_df[master_df['SALES_VALUE'] > 0].reset_index(drop=True)
+        logging.info(f"-> Filtered zero sales: {original_shape} -> {master_df.shape} ({original_shape[0] - master_df.shape[0]:,} zero-filled rows removed)")
+
     except Exception as e:
         logging.error(f"ERROR during WS0 (Aggregation): {e}", exc_info=True)
         sys.exit(1)
 
-    # 4. Tích hợp (Enrichment) theo Mô-đun (Tính năng "Bật/Tắt")
+    # 4. Integrate (Enrichment) by Module (Toggle Feature)
     # -----------------------------------------------------------------
     # Workstream 1: Relational (Joins)
     # -----------------------------------------------------------------
     logging.info("--- (2/6) Integrating Workstream 1: Relational ---")
     try:
-        # Gọi hàm từ 'ws1_relational_features.py'
+        # Call function from 'ws1_relational_features.py'
         master_df = ws1.enrich_relational_features(master_df, dataframes)
         logging.info(f"-> Shape after WS1: {master_df.shape}")
     except KeyError as e:
@@ -92,37 +109,37 @@ def main():
         logging.warning(f"ERROR during WS1: {e}. Skipping...")
 
     # -----------------------------------------------------------------
-    # Workstream 2: Time-Series & Lịch (Lags, Rolling)
+    # Workstream 2: Time-Series & Calendar (Lags, Rolling)
     # -----------------------------------------------------------------
     logging.info("--- (3/6) Integrating Workstream 2: Time-Series ---")
     try:
-        # Gọi hàm từ 'ws2_timeseries_features.py'
-        master_df = ws2.add_lag_rolling_features(master_df)  # (Hàm này có thể cần dataframes['calendar'])
+        # Call function from 'ws2_timeseries_features.py'
+        master_df = ws2.add_lag_rolling_features(master_df)  # (This function may need dataframes['calendar'])
         logging.info(f"-> Shape after WS2: {master_df.shape}")
     except Exception as e:
         logging.warning(f"ERROR during WS2: {e}. Skipping...")
 
     # -----------------------------------------------------------------
-    # Workstream 3: Hành vi (Clickstream)
+    # Workstream 3: Behavior (Clickstream)
     # -----------------------------------------------------------------
     logging.info("--- (4/6) Integrating Workstream 3: Behavior ---")
     try:
-        # Dunnhumby KHÔNG CÓ clickstream. Logic "bật/tắt" sẽ phát hiện điều này.
+        # Dunnhumby does NOT have clickstream. Toggle logic will detect this.
         if 'clickstream_log' not in dataframes:
             logging.info("INFO: Skipping WS3: 'clickstream_log' not found in data (As expected for Dunnhumby).")
         else:
-            master_df = ws3.add_behavioral_features(master_df, dataframes['clickstream_log'])
+            master_df = ws3.add_behavioral_features(master_df, dataframes)
             logging.info(f"-> Shape after WS3: {master_df.shape}")
 
     except Exception as e:
         logging.warning(f"ERROR during WS3: {e}. Skipping...")
 
     # -----------------------------------------------------------------
-    # Workstream 4: Giá & Khuyến mãi (Price & Promotion)
+    # Workstream 4: Price & Promotion
     # -----------------------------------------------------------------
     logging.info("--- (5/6) Integrating Workstream 4: Price/Promotion ---")
     try:
-        # Gọi hàm từ 'ws4_price_features.py'
+        # Call function from 'ws4_price_features.py'
         master_df = ws4.add_price_promotion_features(master_df, dataframes)
         logging.info(f"-> Shape after WS4: {master_df.shape}")
     except KeyError as e:
@@ -130,7 +147,7 @@ def main():
     except Exception as e:
         logging.warning(f"ERROR during WS4: {e}. Skipping...")
 
-    # 5. Validation và Lưu trữ cuối cùng
+    # 5. Final Validation and Storage
     logging.info("--- (6/6) Saving Master Table ---")
     try:
         # validation_report = comprehensive_validation(master_df, verbose=True)

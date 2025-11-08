@@ -34,8 +34,7 @@ datastorm/
 │   └── pipelines/
 │       ├── _01_load_data.py                      # ✅ (original)
 │       ├── _02_feature_enrichment.py             # ✅ (updated: auto-load WS2 optimized)
-│       ├── _03_model_training.py                 # ✅ (original: quick training)
-│       └── _03_model_training_tuned.py           # 🆕 (with Optuna)
+│       └── _03_model_training.py                 # ✅ (unified: standard + Optuna tuning)
 ├── scripts/
 │   ├── run_optimized_pipeline.py                 # 🆕 (main runner)
 │   ├── test_optimized.py                         # 🆕 (validation tests)

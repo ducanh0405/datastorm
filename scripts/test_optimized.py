@@ -22,23 +22,24 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 
 def test_optimized_ws2_import():
-    """Test 1: Can we import optimized WS2?"""
-    logging.info("\n[TEST 1] Importing WS2 Optimized Module")
+    """Test 1: Can we import WS2 (now optimized by default)?"""
+    logging.info("\n[TEST 1] Importing WS2 Module")
     logging.info("-" * 70)
     
     try:
-        from src.features import ws2_timeseries_features_optimized as ws2_opt
+        from src.features import ws2_timeseries_features as ws2
         
         # Check functions exist
-        assert hasattr(ws2_opt, 'create_lag_features_vectorized'), "Missing vectorized lag function"
-        assert hasattr(ws2_opt, 'create_rolling_features_optimized'), "Missing optimized rolling function"
-        assert hasattr(ws2_opt, 'add_trend_features'), "Missing trend features function"
+        assert hasattr(ws2, 'create_lag_features'), "Missing lag function"
+        assert hasattr(ws2, 'create_rolling_features'), "Missing rolling function"
+        assert hasattr(ws2, 'add_trend_features'), "Missing trend features function"
+        assert hasattr(ws2, 'add_lag_rolling_features'), "Missing main function"
         
-        logging.info("  [OK] All optimized functions available")
+        logging.info("  [OK] All WS2 functions available (optimized by default)")
         return True
         
     except ImportError as e:
-        logging.error(f"  [FAIL] Cannot import WS2 optimized: {e}")
+        logging.error(f"  [FAIL] Cannot import WS2: {e}")
         return False
 
 
@@ -88,21 +89,21 @@ def test_ws2_speed_improvement():
     df = pd.DataFrame(data)
     logging.info(f"  Test data: {len(df):,} rows ({n_products} products × {n_stores} stores × {n_weeks} weeks)")
     
-    # Test optimized version
+    # Test WS2 (now optimized by default)
     try:
-        from src.features.ws2_timeseries_features_optimized import add_lag_rolling_features as ws2_opt_func
+        from src.features.ws2_timeseries_features import add_lag_rolling_features as ws2_func
         
         start = time.time()
-        result_opt = ws2_opt_func(df.copy())
-        time_opt = time.time() - start
+        result = ws2_func(df.copy())
+        time_elapsed = time.time() - start
         
-        logging.info(f"  Optimized WS2: {time_opt:.2f}s")
-        logging.info(f"  Output shape: {result_opt.shape}")
+        logging.info(f"  WS2 (optimized): {time_elapsed:.2f}s")
+        logging.info(f"  Output shape: {result.shape}")
         
         # Verify features created
-        lag_cols = [c for c in result_opt.columns if 'lag' in c]
-        roll_cols = [c for c in result_opt.columns if 'rolling' in c]
-        trend_cols = [c for c in result_opt.columns if c in ['wow_change', 'momentum', 'volatility']]
+        lag_cols = [c for c in result.columns if 'lag' in c]
+        roll_cols = [c for c in result.columns if 'rolling' in c]
+        trend_cols = [c for c in result.columns if c in ['wow_change', 'momentum', 'volatility']]
         
         logging.info(f"  Features created: {len(lag_cols)} lags, {len(roll_cols)} rolling, {len(trend_cols)} trend")
         
@@ -114,30 +115,37 @@ def test_ws2_speed_improvement():
             return False
         
     except Exception as e:
-        logging.error(f"  [FAIL] Error running optimized WS2: {e}")
+        logging.error(f"  [FAIL] Error running WS2: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 
 def test_tuned_pipeline_modules():
-    """Test 4: Can we import tuned training module?"""
-    logging.info("\n[TEST 4] Checking Tuned Training Module")
+    """Test 4: Can we use hyperparameter tuning in main training module?"""
+    logging.info("\n[TEST 4] Checking Hyperparameter Tuning Integration")
     logging.info("-" * 70)
-    
+
     try:
-        from src.pipelines import _03_model_training_tuned as train_tuned
-        
-        # Check functions exist
-        assert hasattr(train_tuned, 'tune_quantile_hyperparameters'), "Missing tuning function"
-        assert hasattr(train_tuned, 'train_quantile_models_tuned'), "Missing tuned training function"
-        assert hasattr(train_tuned, 'create_time_series_cv_splits'), "Missing CV function"
-        
-        logging.info("  [OK] All tuning functions available")
+        from src.pipelines import _03_model_training as train_module
+
+        # Check functions exist in main module
+        assert hasattr(train_module, 'tune_quantile_hyperparameters'), "Missing tuning function"
+        assert hasattr(train_module, 'train_quantile_models_tuned'), "Missing tuned training function"
+        assert hasattr(train_module, 'create_time_series_cv_splits'), "Missing CV function"
+        assert hasattr(train_module, 'main'), "Missing main function"
+
+        # Check Optuna availability
+        if hasattr(train_module, 'OPTUNA_AVAILABLE'):
+            logging.info(f"  [OK] Optuna available: {train_module.OPTUNA_AVAILABLE}")
+        else:
+            logging.warning("  [WARN] Optuna availability not detected")
+
+        logging.info("  [OK] All tuning functions available in main module")
         return True
-        
+
     except ImportError as e:
-        logging.error(f"  [FAIL] Cannot import tuned training: {e}")
+        logging.error(f"  [FAIL] Cannot import main training module: {e}")
         return False
     except AssertionError as e:
         logging.error(f"  [FAIL] Missing function: {e}")

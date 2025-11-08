@@ -1,2 +1,2 @@
-# Gói (package) này chứa các script (pipeline)
-# dùng để chạy các quy trình chính (xử lý dữ liệu, huấn luyện).
+# This package contains pipeline scripts
+# used to run main processes (data processing, training).

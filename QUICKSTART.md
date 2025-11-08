@@ -46,6 +46,14 @@ python src/pipelines/_04_run_pipeline.py
 
 ---
 
+## 📋 Prerequisites
+
+- **Python**: 3.10, 3.11, or 3.12
+- **RAM**: 4GB+ recommended (8GB+ for full dataset)
+- **Disk Space**: 2GB+ for data and models
+
+---
+
 ## 🎯 Step-by-Step Walkthrough
 
 ### Step 1: Install Dependencies (2 minutes)

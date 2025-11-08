@@ -1,2 +1,2 @@
-# Gói (package) này chứa các hàm tạo đặc trưng (feature engineering)
-# cho từng workstream.
+# This package contains feature engineering functions
+# for each workstream.

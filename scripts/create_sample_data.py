@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'raw' / 'Dunnhumby'
+RAW_DATA_DIR = PROJECT_ROOT / 'data' / '2_raw'
 POC_DATA_DIR = PROJECT_ROOT / 'data' / 'poc_data'
 
 SAMPLE_FRACTION = 0.01  # 1% sample

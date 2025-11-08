@@ -1,17 +1,21 @@
+"""
+Data Loading Module
+===================
+Loads raw competition data from various sources (Dunnhumby, M5, etc.).
+"""
 import pandas as pd
 import logging
 from pathlib import Path
 import sys
-import os
+from typing import Dict, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
 # Auto-detect data directory (try multiple locations)
-RAW_DATA_DIR = None
+RAW_DATA_DIR: Optional[Path] = None
 for possible_dir in [
     PROJECT_ROOT / 'data' / 'poc_data',  # POC data (1% sample) - PRIORITY
-    PROJECT_ROOT / 'data' / 'raw' / 'Dunnhumby',  # Full data location
     PROJECT_ROOT / 'data' / '2_raw',  # Legacy location
 ]:
     if possible_dir.exists() and list(possible_dir.glob('*.csv')):
@@ -19,16 +23,25 @@ for possible_dir in [
         break
 
 if RAW_DATA_DIR is None:
-    RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'poc_data'  # Default fallback
+    RAW_DATA_DIR = PROJECT_ROOT / 'data' / '2_raw'  # Default fallback
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def load_competition_data(data_dir=None):
+def load_competition_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
     """
     Load all raw data (Dunnhumby, M5, etc.) from data directory.
     Auto-detects data location (poc_data, raw/Dunnhumby, or 2_raw).
     Reads .csv or .parquet files.
+    
+    Args:
+        data_dir: Optional path to data directory. If None, auto-detects.
+    
+    Returns:
+        Dictionary mapping filename (without extension) to DataFrame
+    
+    Raises:
+        SystemExit: If data directory not found
     """
     if data_dir is None:
         data_dir = RAW_DATA_DIR
