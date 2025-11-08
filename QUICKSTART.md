@@ -1,7 +1,8 @@
 # 🚀 Quick Start Guide - DataStorm Refactored Pipeline
 
-**Last Updated:** November 6, 2025  
+**Last Updated:** November 9, 2025
 **Status:** Production-Ready
+**Default Data:** POC (1% sample) - optimized for development and testing
 
 ---
 
@@ -155,7 +156,7 @@ python src/pipelines/_04_run_pipeline.py
 ```
 
 **What Happens:**
-1. **Data Loading:** Reads CSVs from `data/poc_data/` (or `data/raw/` if using full dataset)
+1. **Data Loading:** Reads CSVs from `data/poc_data/` (default for development) or `data/2_raw/` (full dataset)
 2. **WS0 (Aggregation):** Aggregates transactions to weekly level, creates master grid
 3. **WS1 (Relational):** Joins product and household demographics
 4. **WS2 (Time-Series):** Creates leak-safe lag/rolling features
@@ -384,20 +385,23 @@ safety_stock = forecast_q95 - forecast_q50
 
 ### Q: How do I run on the full dataset (not POC)?
 
-Just change the data source in `_01_load_data.py`:
+Set the DATA_SOURCE environment variable to force full data:
 
-```python
-# Edit src/pipelines/_01_load_data.py
-RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'raw' / 'Dunnhumby'  # Full dataset
-# (instead of 'data' / 'poc_data')
-```
-
-Or set an environment variable:
 ```bash
-export DATA_SOURCE=full  # Linux/Mac
-set DATA_SOURCE=full     # Windows
+# Linux/Mac
+export DATA_SOURCE=full
+python src/pipelines/_04_run_pipeline.py
+
+# Windows PowerShell
+$env:DATA_SOURCE="full"
+python src/pipelines/_04_run_pipeline.py
+
+# Windows CMD
+set DATA_SOURCE=full
 python src/pipelines/_04_run_pipeline.py
 ```
+
+**Note:** Full dataset requires 8GB+ RAM and ~45 minutes runtime.
 
 ### Q: What if I get import errors?
 

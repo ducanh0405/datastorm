@@ -155,7 +155,7 @@ class PerformanceBenchmark:
         # Get unique values
         all_products = df_agg.select('PRODUCT_ID').unique()
         all_stores = df_agg.select('STORE_ID').unique()
-        all_weeks = df_agg.select('WEEK_NO').unique().sort()
+        all_weeks = df_agg.select('WEEK_NO').unique().sort('WEEK_NO')
 
         # Create grid using cross joins
         product_store_grid = all_products.join(all_stores, how='cross')
@@ -181,12 +181,12 @@ class PerformanceBenchmark:
     def run_benchmark(self):
         """Run complete benchmark suite."""
         logger.info("=" * 80)
-        logger.info("🚀 STARTING PERFORMANCE BENCHMARK")
+        logger.info("STARTING PERFORMANCE BENCHMARK")
         logger.info("=" * 80)
 
         try:
             # Load data
-            logger.info("\n📥 DATA LOADING")
+            logger.info("\n[DATA LOADING]")
             logger.info("-" * 40)
 
             df_pandas = self.load_data_pandas()
@@ -241,29 +241,29 @@ class PerformanceBenchmark:
             self.print_results()
 
         except Exception as e:
-            logger.error(f"❌ Benchmark failed: {e}", exc_info=True)
+            logger.error(f"BENCHMARK FAILED: {e}", exc_info=True)
 
     def print_results(self):
         """Print benchmark results."""
         logger.info("\n" + "=" * 80)
-        logger.info("📊 BENCHMARK RESULTS")
+        logger.info("BENCHMARK RESULTS")
         logger.info("=" * 80)
 
-        print(f"\n📥 Data Loading:")
+        print(f"\n[DATA LOADING]")
         if 'data_loading' in self.results:
             dl = self.results['data_loading']
             print(f"   Rows: {dl['rows']:,}, Columns: {dl['cols']}")
 
         if 'aggregation' in self.results:
             agg = self.results['aggregation']
-            print(f"\n🔄 Aggregation:")
+            print(f"\n[AGGREGATION]")
             print(f"  Pandas: {agg['pandas_time']:.2f}s")
             print(f"  Polars: {agg['polars_time']:.2f}s")
             print(f"  Speedup: {agg['speedup']:.1f}x")
 
         if 'grid_creation' in self.results:
             grid = self.results['grid_creation']
-            print(f"\n🎯 Grid Creation:")
+            print(f"\n[GRID CREATION]")
             print(f"  Pandas: {grid['pandas_time']:.2f}s")
             print(f"  Polars: {grid['polars_time']:.2f}s")
             print(f"  Speedup: {grid['speedup']:.1f}x")
@@ -271,18 +271,18 @@ class PerformanceBenchmark:
 
         if 'total' in self.results:
             total = self.results['total']
-            print(f"\n🏆 TOTAL WS0 PERFORMANCE:")
+            print(f"\n[TOTAL WS0 PERFORMANCE]")
             print(f"  Pandas: {total['pandas_time']:.2f}s")
             print(f"  Polars: {total['polars_time']:.2f}s")
             print(f"  Speedup: {total['speedup']:.1f}x")
 
-        print(f"\n💡 Recommendations:")
+        print(f"\n[RECOMMENDATIONS]")
         if 'total' in self.results and self.results['total']['speedup'] > 2:
-            print("   ✅ Use Polars for production! Significant performance improvement.")
+            print("   SUCCESS: Use Polars for production! Significant performance improvement.")
         elif POLARS_AVAILABLE:
-            print("   ⚠️ Moderate speedup. Consider Polars for large datasets.")
+            print("   INFO: Moderate speedup. Consider Polars for large datasets.")
         else:
-            print("   ❌ Polars not available. Consider installing: pip install polars")
+            print("   WARNING: Polars not available. Consider installing: pip install polars")
 
         logger.info("=" * 80)
 

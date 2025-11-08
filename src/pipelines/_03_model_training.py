@@ -251,6 +251,7 @@ def train_quantile_models_tuned(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     categorical_features: List[str],
+    feature_cols: List[str] = None,
     n_trials: int = 30,
     quantiles: List[float] = None
 ) -> Dict[float, lgb.LGBMRegressor]:
@@ -263,6 +264,7 @@ def train_quantile_models_tuned(
         X_train: Training features
         y_train: Training target
         categorical_features: List of categorical column names
+        feature_cols: List of feature column names (default: X_train.columns)
         n_trials: Number of Optuna trials per quantile
         quantiles: List of quantile levels to train (default: from config)
 
@@ -276,6 +278,9 @@ def train_quantile_models_tuned(
     if quantiles is None:
         quantiles = TRAINING_CONFIG['quantiles']
 
+    if feature_cols is None:
+        feature_cols = X_train.columns.tolist()
+
     logger.info("=" * 70)
     logger.info("TRAINING TUNED QUANTILE MODELS (Hyperparameter Optimization)")
     logger.info("=" * 70)
@@ -288,8 +293,12 @@ def train_quantile_models_tuned(
         logger.info(f"\n[TUNING] Q{int(alpha*100):02d} (alpha={alpha}) - {n_trials} trials")
 
         # Get best hyperparameters for this quantile
+        # Create full training DataFrame with features and target
+        train_df = X_train.copy()
+        train_df['SALES_VALUE'] = y_train
+
         best_params = tune_quantile_hyperparameters(
-            X_train, y_train, categorical_features, alpha, n_trials
+            train_df, feature_cols, categorical_features, alpha, n_trials
         )
 
         # Set the alpha for quantile regression
@@ -603,7 +612,7 @@ def main(tune_hyperparameters: bool = False, n_trials: int = 30) -> None:
     logger.info("STEP 3: TRAIN QUANTILE MODELS (Q05, Q50, Q95)")
     if tune_hyperparameters and OPTUNA_AVAILABLE:
         logger.info(f"  Using hyperparameter tuning with {n_trials} trials per quantile")
-        quantile_models = train_quantile_models_tuned(X_train, y_train, cat_features, n_trials=n_trials)
+        quantile_models = train_quantile_models_tuned(X_train, y_train, cat_features, features, n_trials=n_trials)
     elif tune_hyperparameters and not OPTUNA_AVAILABLE:
         logger.warning("  Optuna not available, falling back to standard training")
         quantile_models = train_quantile_models(X_train, y_train, cat_features)

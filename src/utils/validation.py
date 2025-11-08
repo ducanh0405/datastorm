@@ -8,7 +8,29 @@ import numpy as np
 import logging
 from typing import Dict, List, Optional, Any
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Import centralized config
+try:
+    from src.config import VALIDATION_CONFIG, setup_logging
+    setup_logging()
+    logger = logging.getLogger(__name__)
+except ImportError:
+    # Fallback
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+    VALIDATION_CONFIG = {
+        'required_columns': ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO', 'SALES_VALUE'],
+        'data_ranges': {
+            'SALES_VALUE': (0, None),
+            'QUANTITY': (0, None),
+            'WEEK_NO': (1, 104),
+            'discount_pct': (0, 1),
+        },
+        'quality_thresholds': {
+            'excellent': 90,
+            'good': 75,
+            'fair': 60,
+        }
+    }
 
 
 def check_required_columns(df: pd.DataFrame, required_cols: List[str]) -> Dict[str, bool]:
@@ -31,24 +53,24 @@ def check_required_columns(df: pd.DataFrame, required_cols: List[str]) -> Dict[s
 def validate_data_ranges(df: pd.DataFrame, column_ranges: Optional[Dict[str, tuple]] = None) -> Dict[str, Any]:
     """
     Validate that numeric columns are within expected ranges.
-    
+
     Args:
         df: Dataframe to validate
         column_ranges: Optional dict mapping column name to (min, max) tuple
-    
+
     Returns:
         Dictionary with validation results
     """
     results = {}
-    
+
     if column_ranges is None:
-        # Default ranges for common columns
-        column_ranges = {
+        # Use centralized config or defaults
+        column_ranges = VALIDATION_CONFIG.get('data_ranges', {
             'SALES_VALUE': (0, None),  # Non-negative
             'QUANTITY': (0, None),  # Non-negative
             'WEEK_NO': (1, 104),  # Typical week range
             'discount_pct': (0, 1),  # 0-100%
-        }
+        })
     
     for col, (min_val, max_val) in column_ranges.items():
         if col not in df.columns:

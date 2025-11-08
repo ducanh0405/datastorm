@@ -7,24 +7,28 @@ import pandas as pd
 import numpy as np
 import logging
 
-# Core config - fallback if config.py not available
+# Import dependencies
 try:
     import polars as pl
     POLARS_AVAILABLE = True
 except ImportError:
     POLARS_AVAILABLE = False
 
+# Import centralized config
 try:
-    from ..config import AGGREGATION_CONFIG, PERFORMANCE_CONFIG
+    from ..config import AGGREGATION_CONFIG, PERFORMANCE_CONFIG, setup_logging
+    setup_logging()
+    logger = logging.getLogger(__name__)
 except ImportError:
+    # Fallback config
     AGGREGATION_CONFIG = {
         'groupby_keys': ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO'],
         'aggregation_rules': {'SALES_VALUE': 'sum', 'QUANTITY': 'sum',
                             'RETAIL_DISC': 'sum', 'COUPON_DISC': 'sum', 'COUPON_MATCH_DISC': 'sum'}
     }
     PERFORMANCE_CONFIG = {'use_polars': True, 'fallback_to_pandas': True}
-
-logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
 
 # Helper functions
@@ -62,7 +66,7 @@ def aggregate_to_weekly_polars(df: pl.DataFrame) -> pl.DataFrame:
                 agg_exprs.append(pl.col(col).count().alias(col))
 
     df_agg = df.group_by(groupby_keys).agg(agg_exprs)
-    logging.info(f"[WS0-Polars] Aggregated {len(df):,} -> {len(df_agg):,} weekly records")
+    logger.info(f"WS0-Polars: Aggregated {len(df):,} -> {len(df_agg):,} weekly records")
     return df_agg
 
 
@@ -74,7 +78,7 @@ def create_master_grid_polars(df_agg: pl.DataFrame) -> pl.DataFrame:
     all_weeks = df_agg.select('WEEK_NO').unique().sort()
 
     n_products, n_stores, n_weeks = len(all_products), len(all_stores), len(all_weeks)
-    logging.info(f"[WS0-Polars] Grid: {n_products:,}×{n_stores:,}×{n_weeks:,} = {n_products*n_stores*n_weeks:,} combinations")
+    logger.info(f"WS0-Polars: Grid: {n_products:,}×{n_stores:,}×{n_weeks:,} = {n_products*n_stores*n_weeks:,} combinations")
 
     # Create grid using cross joins
     product_store_grid = all_products.join(all_stores, how='cross')
@@ -91,7 +95,7 @@ def create_master_grid_polars(df_agg: pl.DataFrame) -> pl.DataFrame:
     )
 
     filled_rows = len(master_df) - len(df_agg)
-    logging.info(f"[WS0-Polars] Grid complete: {len(master_df):,} rows ({filled_rows:,} zero-filled)")
+    logger.info(f"WS0-Polars: Grid complete: {len(master_df):,} rows ({filled_rows:,} zero-filled)")
     return master_df
 
 
@@ -116,7 +120,7 @@ def prepare_master_dataframe_polars(raw_transactions: pd.DataFrame) -> pd.DataFr
     if not is_sorted:
         master_df_pd = master_df_pd.sort_values(['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']).reset_index(drop=True)
 
-    logging.info(f"[WS0-Polars] Complete: {master_df_pd.shape[0]:,} rows, {master_df_pd.shape[1]} columns")
+    logger.info(f"WS0-Polars: Complete: {master_df_pd.shape[0]:,} rows, {master_df_pd.shape[1]} columns")
     return master_df_pd
 
 
@@ -135,7 +139,7 @@ def aggregate_to_weekly_pandas(df: pd.DataFrame) -> pd.DataFrame:
     agg_rules = _get_agg_rules(df.columns)
 
     df_agg = df.groupby(groupby_keys, as_index=False).agg(agg_rules)
-    logging.info(f"[WS0-Pandas] Aggregated {len(df):,} -> {len(df_agg):,} weekly records")
+    logger.info(f"WS0-Pandas: Aggregated {len(df):,} -> {len(df_agg):,} weekly records")
     return df_agg
 
 
@@ -146,7 +150,7 @@ def create_master_grid_pandas(df_agg: pd.DataFrame) -> pd.DataFrame:
     all_stores = df_agg['STORE_ID'].unique()
     all_weeks = np.sort(df_agg['WEEK_NO'].unique())
 
-    logging.info(f"[WS0-Pandas] Grid: {len(all_products):,}×{len(all_stores):,}×{len(all_weeks):,} = {len(all_products)*len(all_stores)*len(all_weeks):,} combinations")
+    logger.info(f"WS0-Pandas: Grid: {len(all_products):,}×{len(all_stores):,}×{len(all_weeks):,} = {len(all_products)*len(all_stores)*len(all_weeks):,} combinations")
 
     # Create complete grid
     grid_index = pd.MultiIndex.from_product([all_products, all_stores, all_weeks], names=['PRODUCT_ID', 'STORE_ID', 'WEEK_NO'])
@@ -163,7 +167,7 @@ def create_master_grid_pandas(df_agg: pd.DataFrame) -> pd.DataFrame:
     master_df = master_df.sort_values(['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']).reset_index(drop=True)
 
     filled_rows = len(master_df) - len(df_agg)
-    logging.info(f"[WS0-Pandas] Grid complete: {len(master_df):,} rows ({filled_rows:,} zero-filled)")
+    logger.info(f"WS0-Pandas: Grid complete: {len(master_df):,} rows ({filled_rows:,} zero-filled)")
     return master_df
 
 
@@ -181,7 +185,7 @@ def prepare_master_dataframe_pandas(raw_transactions: pd.DataFrame) -> pd.DataFr
     if not is_sorted:
         master_df = master_df.sort_values(['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']).reset_index(drop=True)
 
-    logging.info(f"[WS0-Pandas] Complete: {master_df.shape[0]:,} rows, {master_df.shape[1]} columns")
+    logger.info(f"WS0-Pandas: Complete: {master_df.shape[0]:,} rows, {master_df.shape[1]} columns")
     return master_df
 
 
@@ -196,7 +200,7 @@ def prepare_master_dataframe_optimized(raw_transactions: pd.DataFrame) -> pd.Dat
         except Exception as e:
             if not PERFORMANCE_CONFIG.get('fallback_to_pandas', True):
                 raise
-            logging.warning(f"[WS0] Polars failed: {e}. Using pandas fallback.")
+            logger.warning(f"WS0: Polars failed: {e}. Using pandas fallback.")
 
     return prepare_master_dataframe_pandas(raw_transactions)
 

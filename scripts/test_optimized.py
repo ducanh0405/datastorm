@@ -236,13 +236,13 @@ def main():
     logging.info("=" * 70)
     
     if passed == total:
-        logging.info("\n✓ ALL TESTS PASSED - Pipeline ready to run!")
+        logging.info("\n[SUCCESS] ALL TESTS PASSED - Pipeline ready to run!")
         logging.info("\nNext steps:")
         logging.info("  1. Quick test:  python scripts/run_optimized_pipeline.py")
         logging.info("  2. Full tuning: python scripts/run_optimized_pipeline.py --tune --trials 30")
         return 0
     else:
-        logging.error("\n✗ SOME TESTS FAILED - Fix issues before running pipeline")
+        logging.error("\n[FAILED] SOME TESTS FAILED - Fix issues before running pipeline")
         return 1
 
 

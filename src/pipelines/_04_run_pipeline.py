@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import os
 import logging
 from pathlib import Path
 
@@ -16,12 +17,18 @@ def run_script(script_name):
     script_path = PIPELINES_DIR / script_name
     logging.info(f"\n--- STARTING SCRIPT: {script_name} ---")
 
+    # Set up environment with correct PYTHONPATH
+    env = dict(os.environ)
+    env['PYTHONPATH'] = str(PROJECT_ROOT)
+
     process = subprocess.run(
         [sys.executable, str(script_path)],
         capture_output=True,
         text=True,
         encoding='utf-8',
-        errors='replace'
+        errors='replace',
+        cwd=PROJECT_ROOT,
+        env=env
     )
 
     if process.returncode != 0:

@@ -8,34 +8,35 @@ import sys
 from pathlib import Path
 from typing import Dict
 
-# === PROJECT ROOT ===
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.append(str(PROJECT_ROOT))
-# ====================
-
-# Configure Logging (English/ASCII only)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# --- IMPORT FROM src/ MODULES ---
+# Import centralized configuration and setup
 try:
-    # Import configuration
-    from src.config import PERFORMANCE_CONFIG
+    # Ensure project root is in path for imports
+    project_root = Path(__file__).resolve().parent.parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from src.config import (
+        DATA_DIRS, OUTPUT_FILES, PERFORMANCE_CONFIG,
+        setup_logging, ensure_directories
+    )
+    setup_logging()  # Setup centralized logging
+    ensure_directories()  # Ensure all directories exist
+    logger = logging.getLogger(__name__)
 
     # 1. Import data loader
     from src.pipelines._01_load_data import load_competition_data
 
     # 2. Import feature engineering modules (refactored from 4 PoCs)
     # WS0: Aggregation & Grid - Unified (Polars + Pandas fallback)
-    # ws0_aggregation.py now contains both implementations and auto-selects
     from src.features import ws0_aggregation as ws0
-    logging.info("[PIPELINE] Using WS0 aggregation (auto-selects Polars/pandas)")
+    logger.info("PIPELINE: WS0 aggregation (auto-selects Polars/pandas)")
 
     # WS1: Relational features (Dunnhumby joins)
     from src.features import ws1_relational_features as ws1
 
     # WS2: Time-Series features (now optimized by default)
     from src.features import ws2_timeseries_features as ws2
-    logging.info("[PIPELINE] Using WS2 features (optimized, 10x speedup)")
+    logger.info("PIPELINE: WS2 features (optimized, 10x speedup)")
 
     # WS3: Behavioral features
     from src.features import ws3_behavior_features as ws3
@@ -46,8 +47,9 @@ try:
     from src.utils.validation import comprehensive_validation
 
 except ImportError as e:
-    logging.error(f"ERROR IMPORTING: {e}")
-    logging.error("Please ensure __init__.py files exist in all src/ subdirectories.")
+    logger = logging.getLogger(__name__)
+    logger.error(f"ERROR IMPORTING: {e}")
+    logger.error("Please ensure __init__.py files exist in all src/ subdirectories.")
     sys.exit(1)
 
 
@@ -56,104 +58,102 @@ except ImportError as e:
 def main() -> None:
     """
     Main pipeline orchestrator for feature enrichment.
-    
+
     Integrates logic from 4 Workstreams (WS0-WS4) to build final Master Table.
     Runs on Dunnhumby dataset to test WS1, WS2, WS4.
     """
-    logging.info("========== STARTING FEATURE ENRICHMENT PIPELINE (WS0+1+2+3+4) ==========")
+    logger.info("=" * 80)
+    logger.info("STARTING FEATURE ENRICHMENT PIPELINE (WS0+1+2+3+4)")
+    logger.info("=" * 80)
 
-    # 1. Define output paths
-    OUTPUT_PROCESSED_DIR = PROJECT_ROOT / 'data' / '3_processed'
-    OUTPUT_FILE = OUTPUT_PROCESSED_DIR / 'master_feature_table.parquet'
+    # 1. Define output paths using centralized config
+    OUTPUT_PROCESSED_DIR = DATA_DIRS['processed_data']
+    OUTPUT_FILE = OUTPUT_FILES['master_feature_table']
     output_csv = OUTPUT_PROCESSED_DIR / 'master_feature_table.csv'
-    OUTPUT_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     # 2. Load Real Data (from data/2_raw/ - Place Dunnhumby data here)
-    logging.info("--- (1/6) Loading Competition Data (from data/2_raw/) ---")
+    logger.info("--- (1/6) Loading Competition Data ---")
     dataframes = load_competition_data()  # Call function from _01_load_data.py
 
     if not dataframes or 'transaction_data' not in dataframes:
-        logging.critical("Error: 'transaction_data.csv' (main sales file) not found in data/2_raw/.")
+        logger.critical("ERROR: 'transaction_data.csv' (main sales file) not found in data directory.")
         sys.exit(1)
 
     # -----------------------------------------------------------------
-    # Workstream 0: AGGREGATION & MASTER GRID (NEW - CRITICAL!)
+    # Workstream 0: AGGREGATION & MASTER GRID (CRITICAL!)
     # -----------------------------------------------------------------
-    logging.info("--- (0/6) Workstream 0: Aggregation & Master Grid Creation ---")
+    logger.info("--- (2/6) Workstream 0: Aggregation & Master Grid Creation ---")
     try:
         master_df = ws0.prepare_master_dataframe(dataframes['transaction_data'])
-        logging.info(f"-> Shape after WS0 (aggregation): {master_df.shape}")
-
-        # CRITICAL FIX: Filter out zero-filled rows to avoid sparse data issues
-        # Only keep rows with actual sales (SALES_VALUE > 0)
-        original_shape = master_df.shape
-        master_df = master_df[master_df['SALES_VALUE'] > 0].reset_index(drop=True)
-        logging.info(f"-> Filtered zero sales: {original_shape} -> {master_df.shape} ({original_shape[0] - master_df.shape[0]:,} zero-filled rows removed)")
+        logger.info(f"RESULT: WS0 aggregation complete - Shape: {master_df.shape}")
+        logger.info(f"NOTE: Complete grid includes zero-filled rows (product-store-week combinations with no sales)")
+        logger.info(f"      Zero-filled rows are CRITICAL for leak-safe time-series feature engineering (WS2)")
 
     except Exception as e:
-        logging.error(f"ERROR during WS0 (Aggregation): {e}", exc_info=True)
+        logger.error(f"ERROR during WS0 (Aggregation): {e}", exc_info=True)
         sys.exit(1)
 
-    # 4. Integrate (Enrichment) by Module (Toggle Feature)
     # -----------------------------------------------------------------
     # Workstream 1: Relational (Joins)
     # -----------------------------------------------------------------
-    logging.info("--- (2/6) Integrating Workstream 1: Relational ---")
+    logger.info("--- (3/6) Integrating Workstream 1: Relational ---")
     try:
         # Call function from 'ws1_relational_features.py'
         master_df = ws1.enrich_relational_features(master_df, dataframes)
-        logging.info(f"-> Shape after WS1: {master_df.shape}")
+        logger.info(f"RESULT: WS1 complete - Shape: {master_df.shape}")
     except KeyError as e:
-        logging.warning(f"SKIPPING WS1: Required data not found (e.g., 'product', 'hh_demographic'). Error: {e}")
+        logger.warning(f"SKIP: WS1 - Required data not found (e.g., 'product', 'hh_demographic'). Error: {e}")
     except Exception as e:
-        logging.warning(f"ERROR during WS1: {e}. Skipping...")
+        logger.warning(f"ERROR during WS1: {e}. Skipping...")
 
     # -----------------------------------------------------------------
     # Workstream 2: Time-Series & Calendar (Lags, Rolling)
     # -----------------------------------------------------------------
-    logging.info("--- (3/6) Integrating Workstream 2: Time-Series ---")
+    logger.info("--- (4/6) Integrating Workstream 2: Time-Series ---")
     try:
         # Call function from 'ws2_timeseries_features.py'
         master_df = ws2.add_lag_rolling_features(master_df)  # (This function may need dataframes['calendar'])
-        logging.info(f"-> Shape after WS2: {master_df.shape}")
+        logger.info(f"RESULT: WS2 complete - Shape: {master_df.shape}")
     except Exception as e:
-        logging.warning(f"ERROR during WS2: {e}. Skipping...")
+        logger.warning(f"ERROR during WS2: {e}. Skipping...")
 
     # -----------------------------------------------------------------
     # Workstream 3: Behavior (Clickstream)
     # -----------------------------------------------------------------
-    logging.info("--- (4/6) Integrating Workstream 3: Behavior ---")
+    logger.info("--- (5/6) Integrating Workstream 3: Behavior ---")
     try:
         # Dunnhumby does NOT have clickstream. Toggle logic will detect this.
         if 'clickstream_log' not in dataframes:
-            logging.info("INFO: Skipping WS3: 'clickstream_log' not found in data (As expected for Dunnhumby).")
+            logger.info("SKIP: WS3 - 'clickstream_log' not found in data (expected for Dunnhumby)")
         else:
             master_df = ws3.add_behavioral_features(master_df, dataframes)
-            logging.info(f"-> Shape after WS3: {master_df.shape}")
+            logger.info(f"RESULT: WS3 complete - Shape: {master_df.shape}")
 
     except Exception as e:
-        logging.warning(f"ERROR during WS3: {e}. Skipping...")
+        logger.warning(f"ERROR during WS3: {e}. Skipping...")
 
     # -----------------------------------------------------------------
     # Workstream 4: Price & Promotion
     # -----------------------------------------------------------------
-    logging.info("--- (5/6) Integrating Workstream 4: Price/Promotion ---")
+    logger.info("--- (6/6) Integrating Workstream 4: Price/Promotion ---")
     try:
         # Call function from 'ws4_price_features.py'
         master_df = ws4.add_price_promotion_features(master_df, dataframes)
-        logging.info(f"-> Shape after WS4: {master_df.shape}")
+        logger.info(f"RESULT: WS4 complete - Shape: {master_df.shape}")
     except KeyError as e:
-        logging.warning(f"SKIPPING WS4: Required data not found (e.g., 'causal_data'). Error: {e}")
+        logger.warning(f"SKIP: WS4 - Required data not found (e.g., 'causal_data'). Error: {e}")
     except Exception as e:
-        logging.warning(f"ERROR during WS4: {e}. Skipping...")
+        logger.warning(f"ERROR during WS4: {e}. Skipping...")
 
-    # 5. Final Validation and Storage
-    logging.info("--- (6/6) Saving Master Table ---")
+    # -----------------------------------------------------------------
+    # Final Validation and Storage
+    # -----------------------------------------------------------------
+    logger.info("--- (7/7) Saving Master Table ---")
     try:
         # validation_report = comprehensive_validation(master_df, verbose=True)
         # if validation_report['passed']:
 
-        logging.info("OK. Data pipeline PASSED. Saving optimized master table...")
+        logger.info("SUCCESS: Pipeline complete. Saving optimized master table...")
 
         # Clean up old files (keep only the main 2 files)
         import glob
@@ -162,7 +162,7 @@ def main() -> None:
             if not (old_file.endswith('.parquet') or old_file.endswith('.csv')):
                 try:
                     Path(old_file).unlink()
-                    logging.info(f"Cleaned up old file: {Path(old_file).name}")
+                    logger.info(f"CLEANUP: Removed old file: {Path(old_file).name}")
                 except:
                     pass
 
@@ -170,21 +170,23 @@ def main() -> None:
         master_df.to_parquet(OUTPUT_FILE, index=False)
         master_df.to_csv(output_csv, index=False)
 
-        logging.info(f"✅ Master Table saved to: {OUTPUT_FILE}")
-        logging.info(f"✅ Master Table CSV saved to: {output_csv}")
-        logging.info(f"📊 Final Shape: {master_df.shape[0]:,} rows, {master_df.shape[1]} columns")
-        logging.info(f"💰 SALES_VALUE range: {master_df['SALES_VALUE'].min():.2f} - {master_df['SALES_VALUE'].max():.2f}")
+        logger.info(f"SUCCESS: Master Table saved to: {OUTPUT_FILE}")
+        logger.info(f"SUCCESS: Master Table CSV saved to: {output_csv}")
+        logger.info(f"STATS: Final Shape: {master_df.shape[0]:,} rows, {master_df.shape[1]} columns")
+        logger.info(f"STATS: SALES_VALUE range: {master_df['SALES_VALUE'].min():.2f} - {master_df['SALES_VALUE'].max():.2f}")
 
         # Quality summary
         zero_sales = (master_df['SALES_VALUE'] == 0).sum()
-        logging.info(f"✅ Data Quality: {zero_sales} zero sales rows (optimized)")
-        logging.info(f"✅ Features: Complete lag/rolling/calendar/price features included")
+        logger.info(f"QUALITY: {zero_sales} zero sales rows (optimized)")
+        logger.info(f"QUALITY: Complete lag/rolling/calendar/price features included")
 
     except Exception as e:
-        logging.error(f"ERROR: Data pipeline failed at final save step: {e}", exc_info=True)
+        logger.error(f"ERROR: Pipeline failed at final save step: {e}", exc_info=True)
         sys.exit(1)
 
-    logging.info("========== COMPLETED FEATURE ENRICHMENT PIPELINE ==========")
+    logger.info("=" * 80)
+    logger.info("FEATURE ENRICHMENT PIPELINE COMPLETED SUCCESSFULLY")
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":

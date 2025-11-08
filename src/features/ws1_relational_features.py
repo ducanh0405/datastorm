@@ -62,8 +62,8 @@ def enrich_relational_features(
         logging.info(f"  Product matching: {matched_products:,}/{len(master_df):,} rows have product info")
 
         if matched_products == 0:
-            logging.error("  ❌ CRITICAL: No products matched! WS1 relational features failed.")
-            logging.error("  💡 Solution: Recreate POC data with PRODUCT_ID matching validation")
+            logging.error("  CRITICAL ERROR: No products matched! WS1 relational features failed.")
+            logging.error("  SOLUTION: Recreate POC data with PRODUCT_ID matching validation")
             # Fill with defaults to prevent NaN issues downstream
             product_cols = ['MANUFACTURER', 'DEPARTMENT', 'BRAND', 'COMMODITY_DESC', 'SUB_COMMODITY_DESC', 'CURR_SIZE_OF_PRODUCT']
             for col in product_cols:

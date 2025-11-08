@@ -36,10 +36,6 @@ def sample_transactions(poc_data_dir):
 @pytest.mark.smoke
 def test_data_loader(poc_data_dir, monkeypatch):
     """Test that data loader can read POC data."""
-    # Temporarily override RAW_DATA_DIR to use POC data
-    import src.pipelines._01_load_data as loader_module
-    monkeypatch.setattr(loader_module, 'RAW_DATA_DIR', poc_data_dir)
-    
     data = load_competition_data(poc_data_dir)
     
     assert isinstance(data, dict)

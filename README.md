@@ -174,7 +174,16 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
     python scripts/test_optimized.py
     ```
 
-6.  Khám phá dữ liệu và phát triển:
+6.  Tạo dashboard và visualization:
+    ```bash
+    # Tạo dashboard hoàn chỉnh với predictions và charts
+    python scripts/create_dashboard.py
+
+    # Dashboard sẽ được tạo trong reports/dashboard/index.html
+    # Mở file index.html để xem dashboard interactive
+    ```
+
+7.  Khám phá dữ liệu và phát triển:
     ```bash
     jupyter-lab
     ```
@@ -186,7 +195,7 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
 
 ## 4. 🔄 Pipeline Workflow (Luồng Xử Lý)
 
-Dự án sử dụng kiến trúc pipeline modular với 4 giai đoạn chính:
+Dự án sử dụng kiến trúc pipeline modular với 5 giai đoạn chính:
 
 ### Giai Đoạn 1: Data Loading (`_01_load_data.py`)
 - Tải dữ liệu thô từ thư mục `data/2_raw/`
@@ -234,6 +243,81 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 - Error handling và logging
 - Sequential execution với dependency management
 
+### Giai Đoạn 5: Prediction & Dashboard (`_05_prediction.py`, `create_dashboard.py`)
+- **Inference Module (`_05_prediction.py`)**: Load trained models và generate predictions
+- **QuantileForecaster Class**: API để predict single/batch với prediction intervals
+- **Visualization Module (`visualization.py`)**: Tạo interactive charts với Plotly
+- **Dashboard Generation**: HTML dashboard với metrics, charts và time-series forecasts
+- **Real-time Prediction**: API để predict cho new data
+
+---
+
+## 📊 Dashboard & Visualization
+
+Pipeline bao gồm hệ thống dashboard hoàn chỉnh để visualize forecasting results:
+
+### Dashboard Features
+
+**📈 Key Metrics Dashboard:**
+- Total predictions count
+- Prediction interval coverage (90% CI)
+- Q50 Pinball loss và RMSE
+- Coverage percentage
+
+**📊 Interactive Charts:**
+- **Prediction Accuracy**: Error distribution, predicted vs actual scatter plots
+- **Quantile Comparison**: Q05/Q50/Q95 forecasts comparison
+- **Time Series Forecasts**: Individual product-store forecasts với prediction intervals
+- **Feature Importance**: Top features from trained models
+
+### Dashboard Files (`reports/dashboard/`)
+
+Sau khi chạy `python scripts/create_dashboard.py`:
+
+```
+reports/dashboard/
+├── index.html                    # Main dashboard (mở file này)
+├── prediction_accuracy.html      # Accuracy metrics charts
+├── quantile_comparison.html      # Quantile comparison
+├── forecast_{product}_{store}.html # Individual forecasts
+├── feature_importance.html       # Feature importance
+├── metrics_summary.csv           # Detailed metrics
+└── summary.json                  # Summary data
+```
+
+### Usage Examples
+
+**Single Prediction API:**
+```python
+from src.pipelines._05_prediction import QuantileForecaster
+
+# Load models
+forecaster = QuantileForecaster()
+
+# Predict for one product-store-week
+result = forecaster.predict_single(
+    product_id="P123",
+    store_id="S456",
+    week_no=100,
+    features={
+        'sales_value_lag_1': 50.0,
+        'rolling_mean_4_lag_1': 45.0,
+        'week_of_year': 15,
+        # ... other features
+    }
+)
+
+print(f"Q50 Forecast: {result['forecast_q50']:.2f}")
+print(f"Prediction Interval: {result['forecast_q05']:.2f} - {result['forecast_q95']:.2f}")
+```
+
+**Batch Predictions:**
+```python
+# Predict for entire test set
+predictions, metrics = predict_on_test_set()
+print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
+```
+
 ---
 
 ## 📊 Trạng Thái Implementation (Current Status)
@@ -246,17 +330,24 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 - ⚠️ **WS3 Behavioral Features**: Framework sẵn sàng (chờ clickstream data)
 - ✅ **Model Training**: Hoàn thành - LightGBM với quantile regression + Optuna tuning
 - ✅ **Pipeline Integration**: Hoàn thành - end-to-end workflow
+- ✅ **Inference Module**: Hoàn thành - QuantileForecaster API cho predictions
+- ✅ **Visualization Module**: Hoàn thành - Interactive dashboard với Plotly
+- ✅ **Dashboard Generation**: Hoàn thành - HTML dashboard với metrics & charts
 
-**Output chính**: `data/3_processed/master_feature_table.parquet`
+**Output chính**:
+- `data/3_processed/master_feature_table.parquet` - Feature table
+- `models/q{05,50,95}_forecaster.joblib` - Trained quantile models
+- `reports/dashboard/index.html` - Interactive dashboard
 
 **Performance:**
 - WS0 Aggregation: 6-15x faster với Polars
 - WS2 Features: 10x faster với vectorized operations
 - Pipeline tổng thể: 4.7x faster so với bản gốc
+- Dashboard: Interactive HTML với Plotly charts
 
 ---
 
-## 6. 📁 Cấu trúc Thư mục (Repository Structure)
+## 7. 📁 Cấu trúc Thư mục (Repository Structure)
 
 ```
 📁 E-Grocery_Forecaster/
@@ -316,10 +407,12 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 │   │   ├── _01_load_data.py         # Tải dữ liệu thô
 │   │   ├── _02_feature_enrichment.py # Làm giàu đặc trưng (WS0-4)
 │   │   ├── _03_model_training.py    # Huấn luyện mô hình (LightGBM + Optuna)
-│   │   └── _04_run_pipeline.py      # Script chính chạy toàn bộ
+│   │   ├── _04_run_pipeline.py      # Script chính chạy toàn bộ
+│   │   └── _05_prediction.py        # Inference & prediction API
 │   │
 │   ├── 📁 utils/                    # Utilities
-│   │   └── validation.py            # Hàm validation dữ liệu
+│   │   ├── validation.py            # Hàm validation dữ liệu
+│   │   └── visualization.py         # Dashboard & visualization functions
 │   │
 │   └── 📁 config.py                 # Cấu hình tập trung
 │
@@ -329,7 +422,8 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 │   ├── test_optimized.py            # Test optimized features
 │   ├── benchmark_performance.py     # Benchmark performance
 │   ├── run_optimized_pipeline.py    # Chạy pipeline tối ưu
-│   └── create_sample_data.py        # Tạo dữ liệu mẫu
+│   ├── create_sample_data.py        # Tạo dữ liệu mẫu
+│   └── create_dashboard.py          # Generate dashboard & visualizations
 │
 ├── 📁 models/                       # Mô hình đã huấn luyện
 │   ├── q05_forecaster.joblib        # Model quantile 5%
@@ -339,13 +433,18 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 │
 ├── 📁 reports/                      # Báo cáo và metrics
 │   ├── VERSION_2_SUMMARY.md         # Tóm tắt phiên bản 2.0
-│   └── 📁 metrics/                  # Kết quả đánh giá mô hình
+│   ├── 📁 metrics/                  # Kết quả đánh giá mô hình
+│   └── 📁 dashboard/                # Interactive dashboard files
+│       ├── index.html               # Main dashboard
+│       ├── prediction_accuracy.html # Accuracy charts
+│       ├── quantile_comparison.html # Quantile comparison
+│       └── forecast_*.html          # Individual forecasts
 │
 └── 📁 tests/                        # Unit tests
     ├── test_smoke.py                # Smoke tests
     └── test_features.py             # Feature engineering tests
 ```
-## 7. 📈 Đo lường Thành công & Kết Quả (Success Metrics & Results)
+## 8. 📈 Đo lường Thành công & Kết Quả (Success Metrics & Results)
 
 ### Chỉ số Kỹ thuật (Technical Metrics)
 
@@ -355,10 +454,17 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 * **WAPE (Weighted Absolute Percentage Error):** Metric chính từ M5 competition
 * **Quantile Loss:** Cho prediction intervals (P10, P50, P90)
 
+**Forecasting Performance:**
+* **RMSE (Root Mean Squared Error):** Đo lường độ lớn của lỗi dự báo
+* **MAE (Mean Absolute Error):** Sai lệch trung bình tuyệt đối
+* **Pinball Loss:** Metric chính cho quantile regression
+* **Prediction Interval Coverage:** Độ chính xác của khoảng dự báo (target: 90%)
+
 **Business Impact:**
 * **Inventory Turnover Ratio:** Tối ưu hóa vòng quay tồn kho
 * **Stockout Rate:** Giảm tỷ lệ hết hàng (< 5%)
 * **Waste Reduction:** Giảm lãng phí từ hàng hỏng (~2% doanh thu)
+* **Dashboard & Monitoring:** Real-time visualization và alerting
 
 ### Kết Quả Hiện Tại (Current Results)
 
@@ -367,22 +473,27 @@ Dự án đã xử lý thành công dataset Dunnhumby với:
 - **92K+ products** với đầy đủ thông tin phân loại
 - **Pipeline end-to-end** chạy thành công từ raw data đến model predictions
 - **Feature engineering** hoàn chỉnh cho 5 workstreams (WS0-WS4)
+- **Interactive dashboard** với real-time visualizations
+- **Prediction API** với quantile forecasting (Q05/Q50/Q95)
+- **Complete inference pipeline** cho production deployment
 
 ### Tiếp Theo (Next Steps)
 
-**Phase 2 - Optimization:**
+**Phase 2 - Production Ready:**
 - ✅ Fine-tuning hyperparameters với Optuna (đã hoàn thành)
 - ✅ Cross-validation và model selection (đã hoàn thành)
+- ✅ Inference API và prediction pipeline (đã hoàn thành)
+- ✅ Interactive dashboard với visualizations (đã hoàn thành)
 - ⏳ Business logic implementation (ROP, Safety Stock) - đang phát triển
 
-**Phase 3 - Production:**
-- ⏳ Model deployment và API
+**Phase 3 - Production Deployment:**
+- ⏳ Model serving API (Flask/FastAPI)
 - ⏳ Real-time forecasting pipeline
-- ⏳ Dashboard monitoring
+- ⏳ Automated dashboard updates
 
 ---
 
-## 8. 🤝 Đóng Góp & Liên Hệ (Contributing & Contact)
+## 9. 🤝 Đóng Góp & Liên Hệ (Contributing & Contact)
 
 **Cách đóng góp:**
 1. Fork repository

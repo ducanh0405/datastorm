@@ -18,9 +18,9 @@ try:
     from src.features.ws0_aggregation import prepare_master_dataframe
     from src.features.ws2_timeseries_features import add_lag_rolling_features
     from src.pipelines._01_load_data import load_competition_data
-    print("  ✓ All modules import successfully")
+    print("  [OK] All modules import successfully")
 except ImportError as e:
-    print(f"  ✗ Import error: {e}")
+    print(f"  [FAIL] Import error: {e}")
     sys.exit(1)
 
 # Test 2: Directory structure
@@ -35,9 +35,9 @@ required_dirs = [
 all_exist = True
 for directory in required_dirs:
     if directory.exists():
-        print(f"  ✓ {directory.relative_to(PROJECT_ROOT)}")
+        print(f"  [OK] {directory.relative_to(PROJECT_ROOT)}")
     else:
-        print(f"  ✗ MISSING: {directory.relative_to(PROJECT_ROOT)}")
+        print(f"  [MISSING] {directory.relative_to(PROJECT_ROOT)}")
         all_exist = False
 
 if not all_exist:
@@ -52,10 +52,10 @@ tx_file = poc_data_dir / 'transaction_data.csv'
 if tx_file.exists():
     import pandas as pd
     df = pd.read_csv(tx_file, nrows=5)
-    print(f"  ✓ POC transaction data exists: {len(pd.read_csv(tx_file)):,} rows")
+    print(f"  [OK] POC transaction data exists: {len(pd.read_csv(tx_file)):,} rows")
     print(f"    Columns: {df.columns.tolist()[:5]}...")
 else:
-    print("  ✗ POC data not found. Run: python scripts/create_sample_data.py")
+    print("  [FAIL] POC data not found. Run: python scripts/create_sample_data.py")
 
 # Test 4: Configuration files
 print("\n[4/5] Testing configuration files...")
@@ -67,9 +67,9 @@ config_files = [
 for filename in config_files:
     filepath = PROJECT_ROOT / filename
     if filepath.exists():
-        print(f"  ✓ {filename}")
+        print(f"  [OK] {filename}")
     else:
-        print(f"  ✗ MISSING: {filename}")
+        print(f"  [MISSING] {filename}")
 
 # Test 5: Quick functional test
 print("\n[5/5] Testing WS0 aggregation (functional test)...")
@@ -84,12 +84,12 @@ if tx_file.exists():
     has_cols = all(col in df_agg.columns for col in required_cols)
     
     if has_cols:
-        print(f"  ✓ Aggregation successful: {len(df_raw):,} rows → {len(df_agg):,} rows")
+        print(f"  [OK] Aggregation successful: {len(df_raw):,} rows -> {len(df_agg):,} rows")
         print(f"    Columns: {required_cols}")
     else:
-        print(f"  ✗ Aggregation missing columns!")
+        print(f"  [FAIL] Aggregation missing columns!")
 else:
-    print("  ⊘ Skipped (no POC data)")
+    print("  [SKIP] Skipped (no POC data)")
 
 print("\n" + "=" * 70)
 print("VALIDATION COMPLETE")

@@ -34,6 +34,9 @@ OUTPUT_FILES = {
     'model_metrics': DATA_DIRS['reports'] / 'metrics' / 'quantile_model_metrics.json',
     'models_dir': DATA_DIRS['models'],  # Directory for models
     'reports_dir': DATA_DIRS['reports'],  # Directory for reports
+    # Dashboard outputs
+    'dashboard_dir': DATA_DIRS['reports'] / 'dashboard',
+    'predictions_test': DATA_DIRS['reports'] / 'predictions_test_set.csv',
 }
 
 # ============================================================================
@@ -189,10 +192,10 @@ def get_all_features() -> List[str]:
 def get_model_config(quantile: float) -> Dict[str, Any]:
     """
     Get model configuration for a specific quantile.
-    
+
     Args:
         quantile: Quantile level (e.g., 0.05, 0.50, 0.95)
-    
+
     Returns:
         Dictionary with model configuration
     """
@@ -202,11 +205,71 @@ def get_model_config(quantile: float) -> Dict[str, Any]:
     return config
 
 
+def get_data_directory(prefer_poc_data: bool = True) -> Path:
+    """
+    Get the appropriate data directory based on availability and preference.
+
+    Args:
+        prefer_poc_data: If True, prefer POC data over full data (recommended for development)
+
+    Returns:
+        Path to the data directory
+    """
+    if prefer_poc_data and DATA_DIRS['poc_data'].exists():
+        return DATA_DIRS['poc_data']
+    elif DATA_DIRS['raw_data'].exists():
+        return DATA_DIRS['raw_data']
+    else:
+        # Fallback to poc_data directory (will be created if needed)
+        return DATA_DIRS['poc_data']
+
+
 def ensure_directories() -> None:
     """Create all required directories if they don't exist."""
     for dir_path in DATA_DIRS.values():
         dir_path.mkdir(parents=True, exist_ok=True)
-    
+
     # Also create metrics subdirectory
     (DATA_DIRS['reports'] / 'metrics').mkdir(parents=True, exist_ok=True)
+
+
+def setup_logging(level: str = None, log_to_file: bool = None) -> None:
+    """
+    Setup centralized logging configuration.
+
+    Args:
+        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_to_file: Whether to log to file
+    """
+    import logging
+
+    level = level or LOGGING_CONFIG.get('level', 'INFO')
+    log_format = LOGGING_CONFIG.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_to_file = log_to_file if log_to_file is not None else LOGGING_CONFIG.get('log_to_file', True)
+
+    # Convert string level to logging level
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+
+    # Configure root logger
+    logging.basicConfig(
+        level=numeric_level,
+        format=log_format,
+        handlers=[]
+    )
+
+    # Add console handler
+    if LOGGING_CONFIG.get('log_to_console', True):
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(log_format))
+        logging.getLogger().addHandler(console_handler)
+
+    # Add file handler
+    if log_to_file:
+        log_file = LOGGING_CONFIG.get('log_file', DATA_DIRS['logs'] / 'pipeline.log')
+        # Ensure logs directory exists
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setFormatter(logging.Formatter(log_format))
+        logging.getLogger().addHandler(file_handler)
 

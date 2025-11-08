@@ -25,7 +25,14 @@ import logging
 import time
 from typing import List
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Import centralized config
+try:
+    from ..config import setup_logging
+    setup_logging()
+    logger = logging.getLogger(__name__)
+except ImportError:
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
 
 
 def create_lag_features(
@@ -47,22 +54,22 @@ def create_lag_features(
     Returns:
         DataFrame with new lag columns
     """
-    logging.info(f"[WS2] Creating lag features for '{target_col}' (optimized)...")
-    
+    logger.info(f"WS2: Creating lag features for '{target_col}' (optimized)...")
+
     if target_col not in df.columns:
-        logging.warning(f"SKIPPING: Column '{target_col}' not found")
+        logger.warning(f"SKIP: Column '{target_col}' not found")
         return df
-    
+
     df_out = df.copy()
-    
+
     # Ensure proper sorting
     df_out = df_out.sort_values(['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']).reset_index(drop=True)
-    
+
     # Use groupby.shift for leak-safe lag features (properly handles group boundaries)
     for lag in lags:
         col_name = f'{target_col.lower()}_lag_{lag}'
         df_out[col_name] = df_out.groupby(['PRODUCT_ID', 'STORE_ID'])[target_col].shift(lag)
-        logging.info(f"  Created: {col_name}")
+        logger.info(f"  Created: {col_name}")
     
     return df_out
 
@@ -90,10 +97,10 @@ def create_rolling_features(
     Returns:
         DataFrame with new rolling features
     """
-    logging.info(f"[WS2] Creating rolling features on lag_{base_lag} of '{target_col}' (optimized)...")
+    logger.info(f"WS2: Creating rolling features on lag_{base_lag} of '{target_col}' (optimized)...")
     
     if target_col not in df.columns:
-        logging.warning(f"SKIPPING: Column '{target_col}' not found")
+        logger.warning(f"SKIP: Column '{target_col}' not found")
         return df
     
     df_out = df.copy()
@@ -111,31 +118,31 @@ def create_rolling_features(
     df_out['_group_id'] = df_out.groupby(['PRODUCT_ID', 'STORE_ID']).ngroup()
     
     for window in windows:
-        logging.info(f"  Processing window size {window}...")
-        
+        logger.info(f"  Processing window size {window}...")
+
         # Use pandas native rolling on sorted data within groups (OPTIMIZED)
         rolled = df_out.groupby('_group_id')[lag_col].rolling(
-            window=window, 
+            window=window,
             min_periods=1
         )
-        
+
         # Mean
         col_mean = f'rolling_mean_{window}_lag_{base_lag}'
         df_out[col_mean] = rolled.mean().reset_index(level=0, drop=True)
-        
+
         # Std
         col_std = f'rolling_std_{window}_lag_{base_lag}'
         df_out[col_std] = rolled.std().reset_index(level=0, drop=True)
-        
+
         # Max
         col_max = f'rolling_max_{window}_lag_{base_lag}'
         df_out[col_max] = rolled.max().reset_index(level=0, drop=True)
-        
+
         # Min
         col_min = f'rolling_min_{window}_lag_{base_lag}'
         df_out[col_min] = rolled.min().reset_index(level=0, drop=True)
-        
-        logging.info(f"    Created: {col_mean}, {col_std}, {col_max}, {col_min}")
+
+        logger.info(f"    Created: {col_mean}, {col_std}, {col_max}, {col_min}")
     
     # Cleanup temporary column
     df_out = df_out.drop(columns=['_group_id'])
@@ -155,10 +162,10 @@ def create_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with calendar features
     """
-    logging.info("[WS2] Creating enhanced calendar features from WEEK_NO...")
-    
+    logger.info("WS2: Creating enhanced calendar features from WEEK_NO...")
+
     if 'WEEK_NO' not in df.columns:
-        logging.warning("SKIPPING: Column 'WEEK_NO' not found")
+        logger.warning("SKIP: Column 'WEEK_NO' not found")
         return df
     
     df_out = df.copy()
@@ -181,7 +188,7 @@ def create_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     # Week position in month (1-4)
     df_out['week_in_month'] = ((df_out['week_of_year'] - 1) % 4) + 1
     
-    logging.info("  Created: week_of_year, month_proxy, quarter, cyclical, business flags")
+    logger.info("  Created: week_of_year, month_proxy, quarter, cyclical, business flags")
     
     return df_out
 
@@ -199,13 +206,13 @@ def add_trend_features(df: pd.DataFrame, target_col: str = 'SALES_VALUE') -> pd.
     Returns:
         DataFrame with trend features added
     """
-    logging.info("[WS2] Creating trend features...")
-    
+    logger.info("WS2: Creating trend features...")
+
     lag1_col = f'{target_col.lower()}_lag_1'
     lag4_col = f'{target_col.lower()}_lag_4'
-    
+
     if lag1_col not in df.columns or lag4_col not in df.columns:
-        logging.warning("Skipping trend features: required lag features not found")
+        logger.warning("SKIP: Trend features - required lag features not found")
         return df
     
     df_out = df.copy()
@@ -222,7 +229,7 @@ def add_trend_features(df: pd.DataFrame, target_col: str = 'SALES_VALUE') -> pd.
     if 'rolling_std_4_lag_1' in df_out.columns and 'rolling_mean_4_lag_1' in df_out.columns:
         df_out['volatility'] = df_out['rolling_std_4_lag_1'] / (df_out['rolling_mean_4_lag_1'] + 1e-6)
     
-    logging.info("  Created: wow_change, wow_pct_change, momentum, volatility")
+    logger.info("  Created: wow_change, wow_pct_change, momentum, volatility")
     
     return df_out
 
@@ -253,24 +260,24 @@ def add_lag_rolling_features(master_df: pd.DataFrame) -> pd.DataFrame:
     """
     start_time = time.time()
     
-    logging.info("=" * 70)
-    logging.info("[WS2] STARTING: Leak-Safe Time-Series Feature Engineering (Optimized)")
-    logging.info("=" * 70)
-    
+    logger.info("=" * 70)
+    logger.info("WS2: STARTING: Leak-Safe Time-Series Feature Engineering (Optimized)")
+    logger.info("=" * 70)
+
     # Verify required columns
     required_cols = ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO', 'SALES_VALUE']
     missing = [col for col in required_cols if col not in master_df.columns]
     if missing:
-        logging.error(f"SKIPPING WS2: Missing required columns: {missing}")
+        logger.error(f"SKIP: WS2 - Missing required columns: {missing}")
         return master_df
-    
+
     # Verify sorting (CRITICAL for leak-safe features)
     is_sorted = master_df.groupby(['PRODUCT_ID', 'STORE_ID'])['WEEK_NO'].apply(
         lambda x: (x.diff().dropna() >= 0).all()
     ).all()
-    
+
     if not is_sorted:
-        logging.warning("WARNING: Data not sorted properly! Sorting now...")
+        logger.warning("WARNING: Data not sorted properly! Sorting now...")
         master_df = master_df.sort_values(['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']).reset_index(drop=True)
     
     # Step 1: Create lag features for SALES_VALUE
@@ -304,9 +311,9 @@ def add_lag_rolling_features(master_df: pd.DataFrame) -> pd.DataFrame:
     
     elapsed = time.time() - start_time
     
-    logging.info("=" * 70)
-    logging.info(f"[WS2] COMPLETE: Added time-series features. Shape: {master_df.shape}, Time: {elapsed:.2f}s")
-    logging.info("=" * 70)
+    logger.info("=" * 70)
+    logger.info(f"WS2: COMPLETE: Added time-series features. Shape: {master_df.shape}, Time: {elapsed:.2f}s")
+    logger.info("=" * 70)
     
     return master_df
 
