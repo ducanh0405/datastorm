@@ -194,7 +194,7 @@ For new features, please include:
 
 ## 📚 Additional Resources
 
-- [README.md](README.md) - Project overview and setup
+- [README.md](../README.md) - Project overview and setup
 - [QUICKSTART.md](QUICKSTART.md) - Quick start guide
 - [TEST_README.md](TEST_README.md) - Testing documentation
 - [Project Wiki](https://github.com/ducanh0405/datastorm/wiki) - Additional documentation

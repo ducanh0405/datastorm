@@ -360,8 +360,15 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 📁 E-Grocery_Forecaster/
 │
 ├── 📄 .gitignore                    # Bỏ qua data, models, venv
+├── 📄 LICENSE                       # MIT License
 ├── 📄 README.md                     # Hướng dẫn cài đặt và sử dụng
 ├── 📄 requirements.txt              # Danh sách thư viện (pandas, polars, lightgbm, xgboost...)
+
+├── 📁 docs/                         # Documentation
+│   ├── 📄 CHANGELOG.md              # Lịch sử thay đổi và release notes
+│   ├── 📄 CONTRIBUTING.md           # Hướng dẫn đóng góp
+│   ├── 📄 QUICKSTART.md             # Hướng dẫn setup nhanh
+│   └── 📄 TEST_README.md            # Tài liệu testing
 │
 ├── 📁 data/
 │   │
@@ -528,3 +535,16 @@ Dự án đã xử lý thành công dataset Dunnhumby với:
 **Liên hệ:** ducanh0405@gmail.com
 
 **License:** MIT License - xem file `LICENSE` để biết thêm chi tiết.
+
+## 📚 Documentation
+
+Tất cả tài liệu chi tiết nằm trong thư mục `docs/`:
+
+- **[QUICKSTART.md](docs/QUICKSTART.md)** - Hướng dẫn setup nhanh và các tính năng mới
+- **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Hướng dẫn đóng góp cho dự án
+- **[CHANGELOG.md](docs/CHANGELOG.md)** - Lịch sử thay đổi và release notes
+- **[TEST_README.md](docs/TEST_README.md)** - Tài liệu về testing và validation
+
+---
+
+**🎯 Dự án E-Grocery Forecaster đã sẵn sàng cho demo và production!**
