@@ -28,6 +28,10 @@
         "wow_pct_change",
         "momentum",
         "volatility",
+        "rolling_mean_std_ratio",
+        "dept_month_interaction",
+        "momentum_seasonal_sin",
+        "momentum_seasonal_cos",
         "base_price",
         "total_discount",
         "discount_pct",
@@ -48,7 +52,11 @@
     ],
     "quantiles": [
         0.05,
+        0.1,
+        0.25,
         0.5,
+        0.75,
+        0.9,
         0.95
     ],
     "model_type": "LightGBM_Quantile_Regression",

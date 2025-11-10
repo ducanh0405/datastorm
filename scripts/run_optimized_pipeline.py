@@ -71,59 +71,44 @@ def run_feature_engineering():
 
 def run_model_training(tune: bool = False, n_trials: int = 30):
     """Run model training with optional tuning."""
-
-    import subprocess
-
-    logging.info("\n" + "=" * 70)
+    
+    # Use tuned version if requested
     if tune:
+        from src.pipelines._03_model_training_tuned import run_training_pipeline
+        
+        logging.info("\n" + "=" * 70)
         logging.info(f"STEP 2: MODEL TRAINING (TUNED - {n_trials} trials per model)")
-    else:
-        logging.info("STEP 2: MODEL TRAINING (QUICK - No Tuning)")
-    logging.info("=" * 70)
-
-    start_time = time.time()
-
-    # Build command for unified training module
-    cmd = [sys.executable, 'src/pipelines/_03_model_training.py']
-    if tune:
-        cmd.extend(['--tune', '--trials', str(n_trials)])
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            cwd=PROJECT_ROOT
+        logging.info("=" * 70)
+        
+        start_time = time.time()
+        
+        run_training_pipeline(
+            tune_hyperparameters=True,
+            n_trials=n_trials
         )
-
+        
         elapsed = time.time() - start_time
+        
+        logging.info(f"\n[OK] Tuned training completed in {elapsed:.1f}s ({elapsed/60:.1f} min)")
+        
+    else:
+        # Use original fast training
+        from src.pipelines._03_model_training import main as train_models
+        
+        logging.info("\n" + "=" * 70)
+        logging.info("STEP 2: MODEL TRAINING (QUICK - No Tuning)")
+        logging.info("=" * 70)
+        
+        start_time = time.time()
+        
+        train_models()
+        
+        elapsed = time.time() - start_time
+        
+        logging.info(f"\n[OK] Quick training completed in {elapsed:.1f}s ({elapsed/60:.1f} min)")
+    
+    return elapsed
 
-        if result.returncode == 0:
-            logging.info(f"\n[OK] Training completed in {elapsed:.1f}s ({elapsed/60:.1f} min)")
-            # Show last 10 lines of output for summary
-            output_lines = result.stdout.strip().split('\n')
-            if output_lines:
-                logging.info("Training summary:")
-                for line in output_lines[-10:]:
-                    if line.strip():
-                        logging.info(f"  {line}")
-            return elapsed
-        else:
-            logging.error("Model training failed:")
-            if result.stderr:
-                logging.error(result.stderr)
-            if result.stdout:
-                logging.error("STDOUT:")
-                logging.error(result.stdout)
-            return None
-
-    except Exception as e:
-        logging.error(f"Model training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
 
 def compare_results():
     """Compare original vs optimized results."""

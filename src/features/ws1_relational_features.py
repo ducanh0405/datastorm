@@ -3,31 +3,31 @@ WS1: Relational Features
 =========================
 Enriches master dataframe with relational data from product and household demographics.
 """
-import pandas as pd
 import logging
-from typing import Dict
+
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def enrich_relational_features(
     master_df: pd.DataFrame,
-    dataframes_dict: Dict[str, pd.DataFrame]
+    dataframes_dict: dict[str, pd.DataFrame]
 ) -> pd.DataFrame:
     """
     Enriches master dataframe with relational features from product and household data.
-    
+
     Performs left joins on:
     - Product data (on PRODUCT_ID)
     - Household demographics (on household_key, if available)
-    
+
     Args:
         master_df: Master dataframe with PRODUCT_ID column
         dataframes_dict: Dictionary containing 'product' and optionally 'hh_demographic' dataframes
-    
+
     Returns:
         Enriched dataframe with product and household features added
-    
+
     Raises:
         pd.errors.MergeError: If merge operations fail
     """
@@ -44,7 +44,7 @@ def enrich_relational_features(
     if 'PRODUCT_ID' not in master_df.columns:
         logging.error("SKIPPING WS1: 'PRODUCT_ID' not found in master_df")
         return master_df
-    
+
     if 'PRODUCT_ID' not in df_prod.columns:
         logging.error("SKIPPING WS1: 'PRODUCT_ID' not found in product dataframe")
         return master_df
@@ -55,7 +55,6 @@ def enrich_relational_features(
         master_df = pd.merge(master_df, df_prod, on='PRODUCT_ID', how='left')
 
         # Check merge success
-        merged_rows = master_df.shape[0] - original_shape[0]
         matched_products = master_df['MANUFACTURER'].notna().sum()
 
         logging.info(f"  Merged product data: {original_shape} -> {master_df.shape}")
@@ -85,7 +84,7 @@ def enrich_relational_features(
     # Merge Household Demographics (optional - only if available)
     if 'hh_demographic' in dataframes_dict:
         df_hh = dataframes_dict['hh_demographic']
-        
+
         if 'household_key' in master_df.columns and 'household_key' in df_hh.columns:
             try:
                 original_shape = master_df.shape

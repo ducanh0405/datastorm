@@ -117,6 +117,7 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
 - XGBoost (alternative và ensemble)
 - Scikit-learn (preprocessing, metrics)
 - Optuna (hyperparameter tuning)
+- SHAP (model interpretability - optional)
 
 **Visualization & Analysis:**
 - Matplotlib, Seaborn, Plotly
@@ -150,16 +151,26 @@ Mô hình GBDT chỉ thực sự mạnh mẽ khi được cung cấp các đặc
 
 4.  Chạy pipeline hoàn chỉnh:
     ```bash
-    # Chạy toàn bộ pipeline từ đầu đến cuối (khuyến nghị)
+    # 🚀 MEMORY OPTIMIZED SCRIPTS (Khuyến nghị cho 32GB RAM):
+    ./run_full_data_optimized.sh    # Linux/Mac: Chạy với tối ưu memory
+    run_full_data_optimized.bat     # Windows: Chạy với tối ưu memory
+
+    # Chạy toàn bộ pipeline (tự động ưu tiên data/2_raw nếu có)
     python src/pipelines/_04_run_pipeline.py
+
+    # Force dùng full data từ data/2_raw
+    python src/pipelines/_04_run_pipeline.py --full-data
 
     # Hoặc sử dụng script tối ưu (với tùy chọn tuning)
     python scripts/run_optimized_pipeline.py              # Quick run (không tuning)
+    python scripts/run_optimized_pipeline.py --full-data  # Force full data
     python scripts/run_optimized_pipeline.py --tune       # Full optimization với Optuna
 
     # Hoặc chạy từng bước riêng lẻ:
-    python src/pipelines/_01_load_data.py           # Tải dữ liệu
-    python src/pipelines/_02_feature_enrichment.py  # Làm giàu đặc trưng (WS0-4)
+    python src/pipelines/_01_load_data.py           # Tự động chọn data tốt nhất (ưu tiên 2_raw)
+    python src/pipelines/_01_load_data.py --full-data    # Force dùng data/2_raw
+    python src/pipelines/_02_feature_enrichment.py  # Làm giàu đặc trưng
+    python src/pipelines/_02_feature_enrichment.py --full-data # Force dùng full data
     python src/pipelines/_03_model_training.py      # Huấn luyện mô hình
     ```
 
@@ -244,12 +255,18 @@ Tích hợp 5 Workstream tính đặc trưng (WS0-WS4):
 - Error handling và logging
 - Sequential execution với dependency management
 
-### Giai Đoạn 5: Prediction & Dashboard (`_05_prediction.py`, `create_dashboard.py`)
-- **Inference Module (`_05_prediction.py`)**: Load trained models và generate predictions
+### Giai Đoạn 5: Prediction (`_05_prediction.py`)
+- **Inference Module**: Load trained models và generate predictions
 - **QuantileForecaster Class**: API để predict single/batch với prediction intervals
-- **Visualization Module (`visualization.py`)**: Tạo interactive charts với Plotly
-- **Dashboard Generation**: HTML dashboard với metrics, charts và time-series forecasts
-- **Real-time Prediction**: API để predict cho new data
+- **Prediction Output**: Tạo predictions cho test set với tất cả quantiles (Q05-Q95)
+- **Prediction Files**: Lưu kết quả tại `reports/predictions_test_set.csv`
+
+### Giai Đoạn 6: Ensemble (`_06_ensemble.py`)
+- **EnsembleForecaster Class**: Kết hợp predictions từ nhiều quantiles
+- **Ensemble Methods**:
+  - **Weighted Average**: Trọng số Q50=40%, cân bằng các quantiles khác
+  - **Uncertainty-Weighted**: Trọng số dựa trên độ chính xác (sharpness)
+- **Output**: Ensemble predictions tại `reports/ensemble_predictions.csv`
 
 ---
 
@@ -319,6 +336,36 @@ predictions, metrics = predict_on_test_set()
 print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 ```
 
+**Ensemble Predictions:**
+```python
+from src.pipelines._05_prediction import QuantileForecaster
+from src.pipelines._06_ensemble import EnsembleForecaster
+import pandas as pd
+
+# Load data
+df = pd.read_parquet('data/3_processed/master_feature_table.parquet')
+df_test = df[df['WEEK_NO'] >= df['WEEK_NO'].quantile(0.8)]
+
+# Initialize forecasters
+forecaster = QuantileForecaster()
+ensemble_forecaster = EnsembleForecaster(forecaster)
+
+# Generate ensemble predictions
+ensemble_predictions = ensemble_forecaster.predict_ensemble(df_test)
+
+# Results saved to: reports/ensemble_predictions.csv
+print(f"Ensemble forecast: {ensemble_predictions['ensemble_forecast'].head()}")
+```
+
+**Chạy Prediction và Ensemble từ Command Line:**
+```bash
+# Chạy prediction trên test set
+python src/pipelines/_05_prediction.py
+
+# Chạy ensemble predictions
+python src/pipelines/_06_ensemble.py
+```
+
 ---
 
 ## 📊 Trạng Thái Implementation (Current Status) - ✅ HOÀN THÀNH
@@ -334,6 +381,8 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 - ✅ **Model Training**: Hoàn thành - LightGBM quantile regression (Q05/Q50/Q95)
 - ✅ **Pipeline Integration**: Hoàn thành - end-to-end workflow với error handling
 - ✅ **Inference Module**: Hoàn thành - QuantileForecaster API với prediction intervals
+- ✅ **Ensemble Module**: Hoàn thành - EnsembleForecaster với weighted average và uncertainty weighting
+- ✅ **Prediction Pipeline**: Hoàn thành - Batch và single prediction với 7 quantiles
 - ✅ **Visualization Module**: Hoàn thành - Interactive dashboard với Plotly
 - ✅ **Dashboard Generation**: Hoàn thành - HTML dashboard với metrics & charts
 - ✅ **Testing Suite**: Hoàn thành - smoke tests, validation scripts
@@ -341,9 +390,10 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 
 **Output chính**:
 - `data/3_processed/master_feature_table.parquet` - Feature table (23846 rows × 53 cols)
-- `models/q{05,50,95}_forecaster.joblib` - Trained quantile models
+- `models/q{05,10,25,50,75,90,95}_forecaster.joblib` - Trained quantile models (7 models)
+- `reports/predictions_test_set.csv` - Test set predictions với tất cả quantiles
+- `reports/ensemble_predictions.csv` - Ensemble predictions (nếu đã chạy ensemble)
 - `reports/dashboard/index.html` - Interactive dashboard với 5+ charts
-- `reports/predictions_test_set.csv` - Test set predictions (5062 records)
 
 **Performance Results:**
 - **WS0 Aggregation**: 6-15x faster với Polars (vs pandas)
@@ -373,21 +423,21 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 │
 ├── 📁 data/
 │   │
-│   ├── 📁 1_poc_data/               # Dữ liệu POC cho 4 Workstream
+│   ├── 📁 1_poc_data/               # Dữ liệu POC cho 4 Workstream (testing)
 │   │   ├── 📁 ws1_olist/            # Olist E-commerce dataset
 │   │   ├── 📁 ws2_m5/               # M5 Walmart forecasting dataset
 │   │   ├── 📁 ws3_retailrocket/     # RetailRocket behavioral dataset
 │   │   └── 📁 ws4_dunnhumby/        # Dunnhumby retail dataset
 │   │
-│   ├── 📁 2_raw/                    # DỮ LIỆU THẬT của cuộc thi
-│   │   ├── campaign_desc.csv
-│   │   ├── campaign_table.csv
-│   │   ├── causal_data.csv
-│   │   ├── coupon_redempt.csv
-│   │   ├── coupon.csv
-│   │   ├── hh_demographic.csv
-│   │   ├── product.csv
-│   │   └── transaction_data.csv
+│   ├── 📁 2_raw/                    # DỮ LIỆU THẬT - PRODUCTION DEFAULT
+│   │   ├── campaign_desc.csv        # Campaign descriptions
+│   │   ├── campaign_table.csv       # Campaign participation
+│   │   ├── causal_data.csv          # Price/display effects (36M rows)
+│   │   ├── coupon_redempt.csv       # Coupon redemptions
+│   │   ├── coupon.csv               # Coupon details
+│   │   ├── hh_demographic.csv       # Household demographics
+│   │   ├── product.csv              # Product catalog (92K products)
+│   │   └── transaction_data.csv     # Main sales data (2.6M transactions)
 │   │
 │   └── 📁 3_processed/              # Đầu ra của pipeline
 │       └── master_feature_table.parquet
@@ -416,18 +466,21 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 │   │   ├── ws1_relational_features.py   # WS1: Tính đặc trưng quan hệ
 │   │   ├── ws2_timeseries_features.py   # WS2: Tính đặc trưng thời gian (optimized)
 │   │   ├── ws3_behavior_features.py     # WS3: Tính đặc trưng hành vi
-│   │   └── ws4_price_features.py        # WS4: Tính đặc trưng giá cả
+│   │   ├── ws4_price_features.py        # WS4: Tính đặc trưng giá cả
+│   │   └── feature_selection.py         # Feature selection utilities
 │   │
 │   ├── 📁 pipelines/                # Pipeline xử lý dữ liệu
 │   │   ├── _01_load_data.py         # Tải dữ liệu thô
 │   │   ├── _02_feature_enrichment.py # Làm giàu đặc trưng (WS0-4)
 │   │   ├── _03_model_training.py    # Huấn luyện mô hình (LightGBM + Optuna)
 │   │   ├── _04_run_pipeline.py      # Script chính chạy toàn bộ
-│   │   └── _05_prediction.py        # Inference & prediction API
+│   │   ├── _05_prediction.py        # Inference & prediction API
+│   │   └── _06_ensemble.py          # Ensemble predictions
 │   │
 │   ├── 📁 utils/                    # Utilities
 │   │   ├── validation.py            # Hàm validation dữ liệu
-│   │   └── visualization.py         # Dashboard & visualization functions
+│   │   ├── visualization.py         # Dashboard & visualization functions
+│   │   └── parallel_processing.py   # Parallel processing utilities
 │   │
 │   └── 📁 config.py                 # Cấu hình tập trung
 │
@@ -438,18 +491,23 @@ print(f"Coverage: {metrics['prediction_interval_coverage']*100:.1f}%")
 │   ├── test_optimized.py            # Test optimized features
 │   ├── benchmark_performance.py     # Benchmark performance
 │   ├── run_optimized_pipeline.py    # Chạy pipeline tối ưu
-│   ├── recreate_poc_data.py         # Recreate POC datasets
-│   └── test_project_comprehensive.py # Comprehensive testing suite
+│   └── run_feature_selection.py     # Feature selection script
 │
 ├── 📁 models/                       # Mô hình đã huấn luyện
 │   ├── q05_forecaster.joblib        # Model quantile 5%
+│   ├── q10_forecaster.joblib        # Model quantile 10%
+│   ├── q25_forecaster.joblib        # Model quantile 25%
 │   ├── q50_forecaster.joblib        # Model quantile 50%
+│   ├── q75_forecaster.joblib        # Model quantile 75%
+│   ├── q90_forecaster.joblib        # Model quantile 90%
 │   ├── q95_forecaster.joblib        # Model quantile 95%
-│   └── model_features.json          # Cấu hình features
+│   ├── model_features.json          # Cấu hình features
+│   └── best_hyperparameters.json    # Best hyperparameters (nếu tuning)
 │
 ├── 📁 reports/                      # Báo cáo và metrics
 │   ├── VERSION_2_SUMMARY.md         # Tóm tắt phiên bản 2.0
-│   ├── predictions_test_set.csv     # Test set predictions (5062 records)
+│   ├── predictions_test_set.csv     # Test set predictions với tất cả quantiles
+│   ├── ensemble_predictions.csv      # Ensemble predictions (nếu đã chạy)
 │   ├── 📁 metrics/                  # Kết quả đánh giá mô hình
 │   │   ├── quantile_model_metrics.json
 │   │   └── master_table_validation.json
@@ -548,5 +606,58 @@ Tất cả tài liệu chi tiết nằm trong thư mục `docs/`:
 - **[TEST_README.md](docs/TEST_README.md)** - Tài liệu về testing và validation
 
 ---
+
+---
+
+## 10. 🔍 Model Interpretability với SHAP (Optional)
+
+Dự án hỗ trợ SHAP values để giải thích predictions của mô hình:
+
+### SHAP Values là gì?
+
+SHAP (SHapley Additive exPlanations) giải thích từng prediction bằng cách chỉ ra đóng góp của từng feature.
+
+**Khác biệt với Feature Importance:**
+- **Feature Importance**: Chỉ biết feature nào quan trọng nhất (global)
+- **SHAP Values**: Biết feature ảnh hưởng thế nào đến từng prediction (local + global)
+
+### Cài đặt SHAP
+
+```bash
+pip install shap
+```
+
+### Sử dụng SHAP
+
+```python
+import shap
+from src.pipelines._05_prediction import QuantileForecaster
+import pandas as pd
+
+# Load model
+forecaster = QuantileForecaster()
+model = forecaster.models[0.50]  # Q50 model
+
+# Load test data
+df = pd.read_parquet('data/3_processed/master_feature_table.parquet')
+df_test = df[df['WEEK_NO'] >= df['WEEK_NO'].quantile(0.8)].head(1000)
+
+# Prepare features
+X_test = forecaster.prepare_features(df_test)
+
+# Calculate SHAP values
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_test)
+
+# Visualize
+shap.summary_plot(shap_values, X_test)  # Summary plot
+shap.summary_plot(shap_values, X_test, plot_type="bar")  # Bar plot
+```
+
+### Lưu ý Performance
+
+- **TreeExplainer** (cho LightGBM): Rất nhanh (~5-10s cho 1000 samples)
+- **Sampling**: Nên sample 1000-5000 samples để tăng tốc
+- **Quantiles**: Có thể tính SHAP cho từng quantile riêng (Q05, Q50, Q95)
 
 **🎯 Dự án E-Grocery Forecaster đã sẵn sàng cho demo và production!**

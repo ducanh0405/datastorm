@@ -23,6 +23,7 @@ from sklearn.metrics import mean_squared_error, mean_pinball_loss
 import warnings
 import time
 import sys
+import os
 import joblib
 import json
 import logging
@@ -251,7 +252,6 @@ def train_quantile_models_tuned(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     categorical_features: List[str],
-    feature_cols: List[str] = None,
     n_trials: int = 30,
     quantiles: List[float] = None
 ) -> Dict[float, lgb.LGBMRegressor]:
@@ -264,7 +264,6 @@ def train_quantile_models_tuned(
         X_train: Training features
         y_train: Training target
         categorical_features: List of categorical column names
-        feature_cols: List of feature column names (default: X_train.columns)
         n_trials: Number of Optuna trials per quantile
         quantiles: List of quantile levels to train (default: from config)
 
@@ -278,9 +277,6 @@ def train_quantile_models_tuned(
     if quantiles is None:
         quantiles = TRAINING_CONFIG['quantiles']
 
-    if feature_cols is None:
-        feature_cols = X_train.columns.tolist()
-
     logger.info("=" * 70)
     logger.info("TRAINING TUNED QUANTILE MODELS (Hyperparameter Optimization)")
     logger.info("=" * 70)
@@ -293,12 +289,8 @@ def train_quantile_models_tuned(
         logger.info(f"\n[TUNING] Q{int(alpha*100):02d} (alpha={alpha}) - {n_trials} trials")
 
         # Get best hyperparameters for this quantile
-        # Create full training DataFrame with features and target
-        train_df = X_train.copy()
-        train_df['SALES_VALUE'] = y_train
-
         best_params = tune_quantile_hyperparameters(
-            train_df, feature_cols, categorical_features, alpha, n_trials
+            X_train, y_train, categorical_features, alpha, n_trials
         )
 
         # Set the alpha for quantile regression
@@ -612,7 +604,7 @@ def main(tune_hyperparameters: bool = False, n_trials: int = 30) -> None:
     logger.info("STEP 3: TRAIN QUANTILE MODELS (Q05, Q50, Q95)")
     if tune_hyperparameters and OPTUNA_AVAILABLE:
         logger.info(f"  Using hyperparameter tuning with {n_trials} trials per quantile")
-        quantile_models = train_quantile_models_tuned(X_train, y_train, cat_features, features, n_trials=n_trials)
+        quantile_models = train_quantile_models_tuned(X_train, y_train, cat_features, n_trials=n_trials)
     elif tune_hyperparameters and not OPTUNA_AVAILABLE:
         logger.warning("  Optuna not available, falling back to standard training")
         quantile_models = train_quantile_models(X_train, y_train, cat_features)
@@ -667,12 +659,25 @@ if __name__ == "__main__":
     parser.add_argument('--tune', action='store_true', help='Enable hyperparameter tuning with Optuna')
     parser.add_argument('--trials', type=int, default=30, help='Number of Optuna trials per quantile (default: 30)')
     parser.add_argument('--quick', action='store_true', help='Quick mode (no tuning, 10 trials)')
+    parser.add_argument('--clear-models', action='store_true', help='Clear existing models before training')
 
     args = parser.parse_args()
 
     if args.quick:
         args.tune = False
         args.trials = 10
+
+    # Clear models if requested or if running with full data (detect via env var)
+    clear_models = args.clear_models or os.environ.get('DATA_SOURCE') in ['full', 'raw']
+
+    if clear_models:
+        logger.info("Clearing existing models before training...")
+        models_dir = OUTPUT_FILES['models_dir']
+        if models_dir.exists():
+            import shutil
+            shutil.rmtree(models_dir)
+            models_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Cleared models directory: {models_dir}")
 
     # Run main pipeline with tuning option
     main(tune_hyperparameters=args.tune, n_trials=args.trials)

@@ -1,7 +1,8 @@
 import subprocess
 import sys
-import os
 import logging
+import argparse
+import os
 from pathlib import Path
 
 # Configure Logging
@@ -12,23 +13,30 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PIPELINES_DIR = PROJECT_ROOT / 'src' / 'pipelines'
 
 
-def run_script(script_name):
-    """Utility function to run a pipeline script and check for errors."""
+def run_script(script_name, extra_args=None):
+    """Utility function to run a pipeline script and check for errors.
+    
+    Args:
+        script_name: Name of the script to run
+        extra_args: List of additional command-line arguments to pass
+    """
     script_path = PIPELINES_DIR / script_name
     logging.info(f"\n--- STARTING SCRIPT: {script_name} ---")
 
-    # Set up environment with correct PYTHONPATH
-    env = dict(os.environ)
-    env['PYTHONPATH'] = str(PROJECT_ROOT)
+    # Build command with extra arguments
+    cmd = [sys.executable, str(script_path)]
+    if extra_args:
+        cmd.extend(extra_args)
+        logging.info(f"With arguments: {' '.join(extra_args)}")
 
     process = subprocess.run(
-        [sys.executable, str(script_path)],
+        cmd,
         capture_output=True,
         text=True,
         encoding='utf-8',
         errors='replace',
         cwd=PROJECT_ROOT,
-        env=env
+        env=dict(os.environ)  # Pass environment variables
     )
 
     if process.returncode != 0:
@@ -46,12 +54,40 @@ def run_script(script_name):
 
 def main():
     """
-    Orchestrates the entire E-Grocery Forecaster project.
+    Orchestrates the entire E-Grocery Forecaster project with optional memory optimizations.
     """
-    logging.info("========== STARTING ENTIRE PROJECT WORKFLOW ==========")
+    parser = argparse.ArgumentParser(description='Run full E-Grocery Forecaster pipeline')
+    parser.add_argument('--full-data', action='store_true', 
+                       help='Use full data from data/2_raw with memory optimizations (32GB RAM recommended)')
+    args = parser.parse_args()
+
+    logging.info("=" * 70)
+    logging.info("STARTING ENTIRE PROJECT WORKFLOW")
+    logging.info("=" * 70)
+    
+    if args.full_data:
+        logging.info("🚀 MEMORY OPTIMIZATION MODE ENABLED")
+        logging.info("   - Force pandas (no Polars)")
+        logging.info("   - Optimized grid (active pairs only)")
+        logging.info("   - Memory limit: 8GB")
+        logging.info("   - Limited threads: 2 cores")
+        logging.info("   - Data source: data/2_raw/")
+        logging.info("=" * 70)
+        
+        # Set environment variable for downstream scripts
+        os.environ['DATA_SOURCE'] = 'full'
+        os.environ['USE_PANDAS_ONLY'] = '1'
+        os.environ['FORCE_OPTIMIZED_GRID'] = '1'
+    else:
+        logging.info("📊 STANDARD MODE")
+        logging.info("   - Auto-detect best data source (prioritizes data/2_raw)")
+        logging.info("=" * 70)
+
+    # Prepare extra args for feature enrichment
+    extra_args = ['--full-data'] if args.full_data else None
 
     # Step 1: Data Processing
-    if not run_script('_02_feature_enrichment.py'):
+    if not run_script('_02_feature_enrichment.py', extra_args):
         logging.critical("Data processing pipeline failed. Halting workflow.")
         sys.exit(1)
 
@@ -60,7 +96,12 @@ def main():
         logging.critical("Model training pipeline failed. Halting workflow.")
         sys.exit(1)
 
-    logging.info("\n========== OK. ENTIRE WORKFLOW COMPLETED SUCCESSFULLY! ==========")
+    logging.info("\n" + "=" * 70)
+    logging.info("✅ ENTIRE WORKFLOW COMPLETED SUCCESSFULLY!")
+    logging.info("=" * 70)
+    if args.full_data:
+        logging.info("📊 Models trained on FULL DATASET with memory optimizations")
+    logging.info("=" * 70)
 
 
 if __name__ == "__main__":

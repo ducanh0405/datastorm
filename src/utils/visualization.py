@@ -3,15 +3,13 @@ Visualization Utilities for Dashboard
 ======================================
 Creates charts and plots for forecasting results.
 """
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 from pathlib import Path
-from typing import Optional, List, Dict
+
+import matplotlib.pyplot as plt
+import pandas as pd
 import plotly.graph_objects as go
+import seaborn as sns
 from plotly.subplots import make_subplots
-import plotly.express as px
 
 # Set style
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -22,8 +20,8 @@ def plot_forecast_timeseries(
     df: pd.DataFrame,
     product_id: str,
     store_id: str,
-    weeks: Optional[List[int]] = None,
-    save_path: Optional[Path] = None
+    weeks: list[int] | None = None,
+    save_path: Path | None = None
 ) -> go.Figure:
     """
     Plot time series forecast with prediction intervals.
@@ -51,24 +49,24 @@ def plot_forecast_timeseries(
 
     # Add actual values
     if 'actual' in plot_df.columns:
-        fig.add_trace(go.Scatter(
+        fig.add_trace(        go.Scatter(
             x=plot_df['WEEK_NO'],
             y=plot_df['actual'],
             name='Actual',
             mode='lines+markers',
-            line=dict(color='blue', width=2),
-            marker=dict(size=8)
+            line={'color': 'blue', 'width': 2},
+            marker={'size': 8}
         ))
 
     # Add forecast median
     if 'forecast_q50' in plot_df.columns:
-        fig.add_trace(go.Scatter(
+        fig.add_trace(        go.Scatter(
             x=plot_df['WEEK_NO'],
             y=plot_df['forecast_q50'],
             name='Forecast (Q50)',
             mode='lines+markers',
-            line=dict(color='green', width=2, dash='dash'),
-            marker=dict(size=6)
+            line={'color': 'green', 'width': 2, 'dash': 'dash'},
+            marker={'size': 6}
         ))
 
     # Add prediction interval
@@ -78,7 +76,7 @@ def plot_forecast_timeseries(
             y=plot_df['forecast_q95'],
             name='Upper Bound (Q95)',
             mode='lines',
-            line=dict(width=0),
+            line={'width': 0},
             showlegend=False
         ))
         fig.add_trace(go.Scatter(
@@ -86,7 +84,7 @@ def plot_forecast_timeseries(
             y=plot_df['forecast_q05'],
             name='Lower Bound (Q05)',
             mode='lines',
-            line=dict(width=0),
+            line={'width': 0},
             fillcolor='rgba(0,100,80,0.2)',
             fill='tonexty',
             showlegend=True
@@ -110,7 +108,7 @@ def plot_forecast_timeseries(
 
 def plot_prediction_accuracy(
     predictions: pd.DataFrame,
-    save_path: Optional[Path] = None
+    save_path: Path | None = None
 ) -> go.Figure:
     """
     Plot prediction accuracy metrics.
@@ -164,14 +162,14 @@ def plot_prediction_accuracy(
     fig.add_trace(
         go.Scatter(x=predictions['actual'], y=predictions['forecast_q50'],
                   mode='markers', name='Predictions',
-                  marker=dict(size=4, opacity=0.6)),
+                  marker={'size': 4, 'opacity': 0.6}),
         row=2, col=2
     )
     # Add diagonal line
     max_val = max(predictions['actual'].max(), predictions['forecast_q50'].max())
     fig.add_trace(
         go.Scatter(x=[0, max_val], y=[0, max_val], mode='lines',
-                  name='Perfect', line=dict(dash='dash', color='red')),
+                  name='Perfect', line={'dash': 'dash', 'color': 'red'}),
         row=2, col=2
     )
 
@@ -190,9 +188,9 @@ def plot_prediction_accuracy(
 
 def plot_feature_importance(
     model,
-    feature_names: List[str],
+    feature_names: list[str],
     top_n: int = 20,
-    save_path: Optional[Path] = None
+    save_path: Path | None = None
 ) -> go.Figure:
     """
     Plot feature importance from trained model.
@@ -216,7 +214,7 @@ def plot_feature_importance(
         x=importance_df['importance'],
         y=importance_df['feature'],
         orientation='h',
-        marker=dict(color=importance_df['importance'], colorscale='Viridis')
+        marker={'color': importance_df['importance'], 'colorscale': 'Viridis'}
     ))
 
     fig.update_layout(
@@ -235,7 +233,7 @@ def plot_feature_importance(
 
 def plot_quantile_comparison(
     predictions: pd.DataFrame,
-    save_path: Optional[Path] = None
+    save_path: Path | None = None
 ) -> go.Figure:
     """
     Plot comparison between different quantiles.
@@ -255,7 +253,7 @@ def plot_quantile_comparison(
             y=predictions['actual'],
             name='Actual',
             mode='markers',
-            marker=dict(size=4, color='blue', opacity=0.7)
+            marker={'size': 4, 'color': 'blue', 'opacity': 0.7}
         ))
 
     if 'forecast_q05' in predictions.columns:
@@ -264,7 +262,7 @@ def plot_quantile_comparison(
             y=predictions['forecast_q05'],
             name='Q05 (Lower Bound)',
             mode='lines',
-            line=dict(color='red', dash='dot')
+            line={'color': 'red', 'dash': 'dot'}
         ))
 
     if 'forecast_q50' in predictions.columns:
@@ -273,7 +271,7 @@ def plot_quantile_comparison(
             y=predictions['forecast_q50'],
             name='Q50 (Median)',
             mode='lines',
-            line=dict(color='green', width=3)
+            line={'color': 'green', 'width': 3}
         ))
 
     if 'forecast_q95' in predictions.columns:
@@ -282,7 +280,7 @@ def plot_quantile_comparison(
             y=predictions['forecast_q95'],
             name='Q95 (Upper Bound)',
             mode='lines',
-            line=dict(color='orange', dash='dot')
+            line={'color': 'orange', 'dash': 'dot'}
         ))
 
     fig.update_layout(
@@ -302,7 +300,7 @@ def plot_quantile_comparison(
 
 def create_dashboard_summary(
     predictions: pd.DataFrame,
-    metrics: Dict,
+    metrics: dict,
     output_dir: Path
 ):
     """
@@ -325,7 +323,7 @@ def create_dashboard_summary(
 
     # 3. Sample time series plots
     sample_products = predictions[['PRODUCT_ID', 'STORE_ID']].drop_duplicates().head(5)
-    for idx, row in sample_products.iterrows():
+    for _idx, row in sample_products.iterrows():
         fig = plot_forecast_timeseries(
             predictions,
             row['PRODUCT_ID'],
@@ -361,7 +359,7 @@ def create_dashboard_summary(
 
 def create_dashboard_index(
     output_dir: Path,
-    metrics: Dict,
+    metrics: dict,
     predictions: pd.DataFrame
 ):
     """Create an index HTML file for the dashboard."""
@@ -468,7 +466,7 @@ def create_dashboard_index(
 
     # Add sample product charts
     sample_products = predictions[['PRODUCT_ID', 'STORE_ID']].drop_duplicates().head(3)
-    for idx, row in sample_products.iterrows():
+    for _idx, row in sample_products.iterrows():
         html_content += f"""
         <div class="chart-card">
             <h3>Product {row['PRODUCT_ID']} - Store {row['STORE_ID']}</h3>

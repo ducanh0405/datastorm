@@ -6,7 +6,7 @@ Centralized configuration management for the E-Grocery Forecaster pipeline.
 All hard-coded values should be moved here for easier maintenance and deployment.
 """
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 # Project root directory
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -68,20 +68,20 @@ TIMESERIES_CONFIG = {
 # ============================================================================
 
 # Quantile levels for probabilistic forecasting
-QUANTILES = [0.05, 0.50, 0.95]  # Lower bound, median, upper bound
+QUANTILES = [0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95]  # 7 quantiles for granular predictions
 
-# LightGBM hyperparameters
+# LightGBM hyperparameters (optimized for memory efficiency on 32GB RAM)
 LIGHTGBM_PARAMS = {
-    'n_estimators': 500,
+    'n_estimators': 300,  # Reduced from 500 for memory efficiency
     'learning_rate': 0.05,
-    'num_leaves': 31,
-    'max_depth': -1,  # No limit
+    'num_leaves': 20,  # Reduced from 31 for memory efficiency
+    'max_depth': 6,  # Limited depth to reduce memory (was -1 unlimited)
     'colsample_bytree': 0.8,
     'subsample': 0.8,
     'reg_alpha': 0.1,  # L1 regularization
     'reg_lambda': 0.1,  # L2 regularization
     'random_state': 42,
-    'n_jobs': -1,  # Use all CPUs
+    'n_jobs': 12,  # Tăng từ 2 lên 12 threads (sử dụng ~60% CPU)
     'verbose': -1,  # Suppress LightGBM output
 }
 
@@ -119,6 +119,21 @@ NUMERIC_FEATURES = [
     'week_of_year', 'month_proxy', 'quarter', 'week_sin', 'week_cos',
     'wow_change', 'wow_pct_change', 'momentum', 'volatility',
 
+    # WS2: Seasonal Decomposition (OPTIONAL - requires statsmodels and min 24 data points)
+    'sales_value_trend', 'sales_value_seasonal', 'sales_value_residual',
+
+    # WS2: Advanced Time-Series (OPTIONAL - requires statsmodels/scipy and min 12 data points)
+    'sales_value_autocorr_1', 'sales_value_autocorr_4', 'sales_value_autocorr_12',
+    'sales_value_entropy', 'sales_value_hurst', 'sales_value_nonlinearity',
+
+    # WS2: Interaction Features (OPTIONAL - depends on base features above)
+    'price_promo_interaction', 'discount_display_interaction',
+    'sales_value_lag_1_seasonal_interaction', 'sales_value_lag_1_trend_interaction',
+    'sales_value_lag_4_seasonal_interaction', 'sales_value_lag_4_trend_interaction',
+    'trend_volatility_interaction', 'rolling_mean_std_ratio',
+    'dept_month_interaction', 'momentum_seasonal_sin', 'momentum_seasonal_cos',
+    'qty_price_interaction',
+
     # WS4: Price/Promo
     'base_price', 'total_discount', 'discount_pct',
 ]
@@ -127,7 +142,7 @@ NUMERIC_FEATURES = [
 CATEGORICAL_FEATURES = [
     # WS1: Relational
     'DEPARTMENT', 'COMMODITY_DESC',
-    
+
     # WS4: Price/Promo
     'is_on_display', 'is_on_mailer', 'is_on_retail_promo', 'is_on_coupon_promo',
 ]
@@ -159,13 +174,14 @@ VALIDATION_CONFIG = {
 # ============================================================================
 
 PERFORMANCE_CONFIG = {
-    'use_polars': True,  # Enable Polars for 2-10x speedup (if available)
+    'use_polars': False,  # Force pandas for memory efficiency on full data (32GB RAM)
     'use_duckdb': False,  # Enable DuckDB for SQL operations (if available)
     'fallback_to_pandas': True,  # Fall back to pandas if Polars/DuckDB not available
-    'memory_limit_gb': 16,  # Memory limit for large datasets
-    'parallel_threads': -1,  # Use all cores (-1 = all available)
-    'chunk_size_mb': 100,  # Chunk size for large file processing
+    'memory_limit_gb': 20,  # Tăng từ 8GB lên 20GB (để lại 12GB cho hệ điều hành)
+    'parallel_threads': 10,  # Tăng từ 2 lên 10 threads
+    'chunk_size_mb': 50,  # Smaller chunk size for memory efficiency
     'lazy_evaluation': True,  # Use lazy evaluation for very large datasets
+    'force_pandas_for_large_data': True,  # Force pandas for datasets > 1M rows
 }
 
 # ============================================================================
@@ -184,12 +200,12 @@ LOGGING_CONFIG = {
 # HELPER FUNCTIONS
 # ============================================================================
 
-def get_all_features() -> List[str]:
+def get_all_features() -> list[str]:
     """Get list of all expected features."""
     return NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
 
-def get_model_config(quantile: float) -> Dict[str, Any]:
+def get_model_config(quantile: float) -> dict[str, Any]:
     """
     Get model configuration for a specific quantile.
 
@@ -205,7 +221,7 @@ def get_model_config(quantile: float) -> Dict[str, Any]:
     return config
 
 
-def get_data_directory(prefer_poc_data: bool = True) -> Path:
+def get_data_directory(prefer_poc_data: bool = False) -> Path:
     """
     Get the appropriate data directory based on availability and preference.
 
@@ -215,13 +231,14 @@ def get_data_directory(prefer_poc_data: bool = True) -> Path:
     Returns:
         Path to the data directory
     """
-    if prefer_poc_data and DATA_DIRS['poc_data'].exists():
-        return DATA_DIRS['poc_data']
-    elif DATA_DIRS['raw_data'].exists():
+    # Prioritize full data (data/2_raw) over poc_data for production use
+    if DATA_DIRS['raw_data'].exists():
         return DATA_DIRS['raw_data']
-    else:
-        # Fallback to poc_data directory (will be created if needed)
+    elif prefer_poc_data and DATA_DIRS['poc_data'].exists():
         return DATA_DIRS['poc_data']
+    else:
+        # Fallback to raw_data directory (production default)
+        return DATA_DIRS['raw_data']
 
 
 def ensure_directories() -> None:

@@ -3,9 +3,10 @@ WS3: Behavioral Features
 =========================
 Creates user behavior features from clickstream data.
 """
-import pandas as pd
-import numpy as np
 import logging
+
+import numpy as np
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -15,14 +16,14 @@ def _process_clickstream_logs(df_events):
     Cleans data, processes timestamps, and prepares log.
     """
     logging.info("[WS3] Starting behavior log processing (clickstream)...")
-    
+
     # Assume df_events has columns: 'timestamp', 'visitorid', 'event', 'itemid'
     if 'timestamp' in df_events.columns:
         df_events['timestamp'] = pd.to_datetime(df_events['timestamp'], unit='ms')  # Assume timestamp is in ms
 
     # Handle NaNs (if any)
     df_events = df_events.dropna(subset=['visitorid', 'itemid'])
-    
+
     logging.info(f"[WS3] Log processing complete. Total events: {len(df_events)}")
     return df_events
 
@@ -32,30 +33,30 @@ def _create_user_features(df_logs):
     Creates feature table at user-level.
     """
     logging.info("[WS3] Starting behavior feature engineering...")
-    
+
     # 1. Create basic features (example from your PoC)
     # This is the conversion funnel calculation logic
     user_features = df_logs.pivot_table(
-        index='visitorid', 
-        columns='event', 
-        aggfunc='size', 
+        index='visitorid',
+        columns='event',
+        aggfunc='size',
         fill_value=0
     )
-    
+
     # Rename columns if needed (e.g., 'addtocart' -> 'total_addtocart')
     user_features = user_features.rename(columns={
         'view': 'total_views',
         'addtocart': 'total_addtocart',
         'transaction': 'total_transactions'
     })
-    
+
     # 2. Create conversion rate features
     # View -> Add to cart rate
     user_features['rate_view_to_cart'] = user_features['total_addtocart'] / (user_features['total_views'] + 1e-6)
-    
+
     # Add to cart -> Purchase rate
     user_features['rate_cart_to_buy'] = user_features['total_transactions'] / (user_features['total_addtocart'] + 1e-6)
-    
+
     # View -> Purchase rate (overall conversion rate)
     user_features['rate_view_to_buy'] = user_features['total_transactions'] / (user_features['total_views'] + 1e-6)
 
@@ -106,7 +107,6 @@ def add_behavioral_features(master_df, dataframes_dict):
     # Assume master_df has column 'visitorid' or 'customer_id' for merging
     merge_keys = ['visitorid']  # Change if column name is different
     if all(key in master_df.columns for key in merge_keys):
-        original_rows = master_df.shape[0]
         master_df = pd.merge(master_df, user_features, on=merge_keys, how='left')
 
         # Fill NaN for users without behavior data

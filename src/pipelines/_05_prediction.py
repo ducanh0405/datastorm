@@ -3,19 +3,21 @@ Prediction/Inference Pipeline
 ==============================
 Loads trained models and generates forecasts for new data.
 """
-import pandas as pd
-import numpy as np
-import joblib
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Tuple, Optional
 import sys
+from pathlib import Path
 
+import joblib
+import numpy as np
+import pandas as pd
+
+# FIX: Add PROJECT_ROOT to sys.path BEFORE importing from src
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.append(str(PROJECT_ROOT))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import OUTPUT_FILES, NUMERIC_FEATURES, CATEGORICAL_FEATURES
+from src.config import CATEGORICAL_FEATURES, NUMERIC_FEATURES, OUTPUT_FILES, QUANTILES
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,7 @@ class QuantileForecaster:
         self.models_dir = models_dir
         self.models = {}
         self.feature_config = None
-        self.quantiles = [0.05, 0.50, 0.95]
+        self.quantiles = QUANTILES
 
         self._load_models()
         self._load_feature_config()
@@ -57,7 +59,7 @@ class QuantileForecaster:
         """Load feature configuration."""
         config_path = OUTPUT_FILES['model_features']
         if config_path.exists():
-            with open(config_path, 'r') as f:
+            with open(config_path) as f:
                 self.feature_config = json.load(f)
             logger.info("  Loaded feature config")
         else:
@@ -92,29 +94,29 @@ class QuantileForecaster:
                     df[feat] = 0
 
         # Select only required features
-        X = df[required_features].copy()
+        x = df[required_features].copy()
 
         # Convert categorical to category dtype and ensure 'unknown' is in categories
         for col in categorical_features:
-            if col in X.columns:
+            if col in x.columns:
                 # Convert to category and add 'unknown' if not present
-                X[col] = X[col].astype('category')
-                if 'unknown' not in X[col].cat.categories:
-                    X[col] = X[col].cat.add_categories(['unknown'])
+                x[col] = x[col].astype('category')
+                if 'unknown' not in x[col].cat.categories:
+                    x[col] = x[col].cat.add_categories(['unknown'])
 
         # Fill NaN - handle categorical columns properly
         fill_values = {}
-        for col in X.columns:
-            if X[col].dtype.name == 'category':
+        for col in x.columns:
+            if x[col].dtype.name == 'category':
                 # For categorical, use 'unknown' as fill value (should be in categories)
                 fill_values[col] = 'unknown'
             else:
                 # For numeric columns, use 0
                 fill_values[col] = 0
 
-        X = X.fillna(fill_values)
+        x = x.fillna(fill_values)
 
-        return X
+        return x
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -124,17 +126,17 @@ class QuantileForecaster:
             df: Input dataframe with features
 
         Returns:
-            DataFrame with predictions (q05, q50, q95)
+            DataFrame with predictions for all quantiles
         """
         logger.info("Generating predictions...")
 
         # Prepare features
-        X = self.prepare_features(df)
+        x = self.prepare_features(df)
 
         # Generate predictions for each quantile
         predictions = {}
         for alpha in self.quantiles:
-            y_pred = self.models[alpha].predict(X)
+            y_pred = self.models[alpha].predict(x)
             y_pred = np.maximum(y_pred, 0)  # Clip negative predictions
             predictions[f'forecast_q{int(alpha*100):02d}'] = y_pred
 
@@ -143,10 +145,15 @@ class QuantileForecaster:
         for key, values in predictions.items():
             results[key] = values
 
-        # Calculate prediction interval
-        results['forecast_lower'] = results['forecast_q05']
-        results['forecast_median'] = results['forecast_q50']
-        results['forecast_upper'] = results['forecast_q95']
+        # Calculate prediction interval dynamically (not hardcoded)
+        quantiles_sorted = sorted(self.quantiles)
+        min_quantile = quantiles_sorted[0]
+        max_quantile = quantiles_sorted[-1]
+        median_quantile = 0.50 if 0.50 in quantiles_sorted else quantiles_sorted[len(quantiles_sorted) // 2]
+
+        results['forecast_lower'] = results[f'forecast_q{int(min_quantile*100):02d}']
+        results['forecast_median'] = results[f'forecast_q{int(median_quantile*100):02d}']
+        results['forecast_upper'] = results[f'forecast_q{int(max_quantile*100):02d}']
         results['prediction_interval'] = results['forecast_upper'] - results['forecast_lower']
 
         logger.info(f"Generated predictions for {len(results)} records")
@@ -154,7 +161,7 @@ class QuantileForecaster:
         return results
 
     def predict_single(self, product_id: str, store_id: str, week_no: int,
-                      features: Dict) -> Dict:
+                      features: dict) -> dict:
         """
         Predict for a single product-store-week combination.
 
@@ -178,15 +185,32 @@ class QuantileForecaster:
         # Predict
         results = self.predict(df)
 
-        return {
+        # Get quantiles dynamically
+        quantiles_sorted = sorted(self.quantiles)
+        min_quantile = quantiles_sorted[0]
+        max_quantile = quantiles_sorted[-1]
+        median_quantile = 0.50 if 0.50 in quantiles_sorted else quantiles_sorted[len(quantiles_sorted) // 2]
+
+        result_dict = {
             'product_id': product_id,
             'store_id': store_id,
             'week_no': week_no,
-            'forecast_q05': float(results['forecast_q05'].iloc[0]),
-            'forecast_q50': float(results['forecast_q50'].iloc[0]),
-            'forecast_q95': float(results['forecast_q95'].iloc[0]),
+            'forecast_q05': float(results.get('forecast_q05', pd.Series([np.nan])).iloc[0])
+                if f'forecast_q05' in results.columns else float(results[f'forecast_q{int(min_quantile*100):02d}'].iloc[0]),
+            'forecast_q50': float(results.get('forecast_q50', pd.Series([np.nan])).iloc[0])
+                if f'forecast_q50' in results.columns else float(results[f'forecast_q{int(median_quantile*100):02d}'].iloc[0]),
+            'forecast_q95': float(results.get('forecast_q95', pd.Series([np.nan])).iloc[0])
+                if f'forecast_q95' in results.columns else float(results[f'forecast_q{int(max_quantile*100):02d}'].iloc[0]),
             'prediction_interval': float(results['prediction_interval'].iloc[0])
         }
+
+        # Also include all quantile predictions (dynamic)
+        for alpha in quantiles_sorted:
+            key = f'forecast_q{int(alpha*100):02d}'
+            if key in results.columns:
+                result_dict[key] = float(results[key].iloc[0])
+
+        return result_dict
 
 
 def predict_on_test_set():
@@ -199,25 +223,25 @@ def predict_on_test_set():
     from src.pipelines._03_model_training import load_data, prepare_data
 
     df = load_data(OUTPUT_FILES['master_feature_table'])
-    X_train, X_test, y_train, y_test, features, cat_features = prepare_data(df)
+    x_train, x_test, y_train, y_test, features, cat_features = prepare_data(df)
 
     # Add back identifiers
     test_indices = df[df['WEEK_NO'] >= df['WEEK_NO'].quantile(0.8)].index
-    X_test_with_ids = df.loc[test_indices, ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']].copy()
-    X_test_with_ids = pd.concat([X_test_with_ids, X_test], axis=1)
+    x_test_with_ids = df.loc[test_indices, ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']].copy()
+    x_test_with_ids = pd.concat([x_test_with_ids, x_test], axis=1)
 
     # Initialize forecaster
     forecaster = QuantileForecaster()
 
     # Generate predictions
-    predictions = forecaster.predict(X_test_with_ids)
+    predictions = forecaster.predict(x_test_with_ids)
     predictions['actual'] = y_test.values
 
     # Calculate metrics
     from src.pipelines._03_model_training import evaluate_quantile_models
     metrics = evaluate_quantile_models(
         forecaster.models,
-        X_test,
+        x_test,
         y_test
     )
 

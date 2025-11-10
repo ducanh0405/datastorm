@@ -5,9 +5,9 @@ Loads raw competition data from various sources (Dunnhumby, M5, etc.).
 """
 import pandas as pd
 import logging
-import os
 from pathlib import Path
 import sys
+import os
 from typing import Dict, Optional
 
 # Import centralized configuration
@@ -23,7 +23,7 @@ except ImportError:
     logger = logging.getLogger(__name__)
 
 
-def load_competition_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
+def load_competition_data(data_dir: Optional[Path] = None, use_full_data: bool = False) -> Dict[str, pd.DataFrame]:
     """
     Load all raw data (Dunnhumby, M5, etc.) from data directory.
     Auto-detects data location with priority: 2_raw (full) > poc_data (sample).
@@ -31,6 +31,7 @@ def load_competition_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataF
 
     Args:
         data_dir: Optional path to data directory. If None, auto-detects.
+        use_full_data: Whether to force loading full data from data/2_raw/ directory.
 
     Returns:
         Dictionary mapping filename (without extension) to DataFrame
@@ -40,20 +41,28 @@ def load_competition_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataF
     """
     if data_dir is None:
         try:
-            # Check for environment variable to force specific data source
-            data_source = os.environ.get('DATA_SOURCE', '').lower()
-            if data_source == 'poc' or data_source == 'sample':
-                data_dir = DATA_DIRS['poc_data']
-                logger.info("FORCED: Using POC data due to DATA_SOURCE=poc environment variable")
-            elif data_source == 'full' or data_source == 'raw':
+            # Check for full data flag first (highest priority)
+            if use_full_data:
                 data_dir = DATA_DIRS['raw_data']
-                logger.info("FORCED: Using full data due to DATA_SOURCE=full environment variable")
+                logger.info("FORCED: Using full data from data/2_raw/ (use_full_data=True)")
             else:
-                # Default: prefer POC data for development
-                data_dir = get_data_directory()
+                # Check for environment variable to force specific data source
+                data_source = os.environ.get('DATA_SOURCE', '').lower()
+                if data_source == 'poc' or data_source == 'sample':
+                    data_dir = DATA_DIRS['poc_data']
+                    logger.info("FORCED: Using POC data due to DATA_SOURCE=poc environment variable")
+                elif data_source == 'full' or data_source == 'raw':
+                    data_dir = DATA_DIRS['raw_data']
+                    logger.info("FORCED: Using full data due to DATA_SOURCE=full environment variable")
+                else:
+                    # Default: prioritize full data over POC data for production
+                    data_dir = get_data_directory()
         except NameError:
             # Fallback if config not available
-            data_dir = Path(__file__).resolve().parent.parent.parent / 'data' / 'poc_data'
+            if use_full_data:
+                data_dir = Path(__file__).resolve().parent.parent.parent / 'data' / '2_raw'
+            else:
+                data_dir = Path(__file__).resolve().parent.parent.parent / 'data' / '2_raw'  # Default to full data
 
     logger.info("=" * 50)
     logger.info("[STEP 1: LOAD DATA]")
@@ -63,14 +72,20 @@ def load_competition_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataF
     if 'poc_data' in str(data_dir):
         logger.info("WARNING: Using POC data (1% sample) - for testing only")
         logger.info("TIP: For full production data, ensure files exist in data/2_raw/")
+    elif '2_raw' in str(data_dir):
+        logger.info("SUCCESS: Using full production data from data/2_raw/")
     else:
-        logger.info("SUCCESS: Using full data from data/2_raw/")
+        logger.info(f"Using data from: {data_dir}")
 
     dataframes = {}
 
     if not data_dir.exists():
-        logger.error(f"ERROR: Raw data directory not found: {data_dir}")
-        logger.error("Please run: python scripts/create_sample_data.py")
+        logger.error(f"ERROR: Data directory not found: {data_dir}")
+        if '2_raw' in str(data_dir):
+            logger.error("Please ensure full data files are placed in data/2_raw/")
+            logger.error("Required files: transaction_data.csv, product.csv, causal_data.csv, etc.")
+        else:
+            logger.error("Please run: python scripts/create_sample_data.py")
         sys.exit(1)
 
     files = [f for f in data_dir.iterdir() if f.is_file() and f.suffix in ['.csv', '.parquet']]
