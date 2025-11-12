@@ -1,7 +1,7 @@
-# 🚀 Quick Start Guide - DataStorm Refactored Pipeline
+# 🚀 Quick Start Guide - SmartGrocy
 
-**Last Updated:** November 9, 2025
-**Status:** Demo-Ready with Interactive Dashboard
+**Last Updated:** November 12, 2025
+**Status:** Demo-Ready with Interactive Dashboard & Modern Pipeline
 **Default Data:** POC (1% sample) with 100% PRODUCT_ID matching
 **Dashboard:** Available at reports/dashboard/index.html
 
@@ -12,44 +12,48 @@
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 
-# 2. Create sample data (1% for testing)
-python scripts/create_sample_data.py
+# 2. Khởi tạo data quality monitoring
+python scripts/setup_data_quality.py
 
-# 3. Validate setup
-python scripts/validate_setup.py
+# 3. Chạy pipeline hiện đại với monitoring
+python run_modern_pipeline.py
 
-# 4. Run smoke tests
-pytest tests/test_smoke.py -v -m smoke
+# 4. Giám sát chất lượng dữ liệu
+python scripts/monitor_data_quality.py
 
-# 5. Run full pipeline
-python src/pipelines/_04_run_pipeline.py
-
-# 6. Generate interactive dashboard
+# 5. Tạo dashboard tương tác
 python scripts/create_dashboard.py
+
+# Mở dashboard: reports/dashboard/index.html
 ```
 
 ---
 
-## 📦 What's New in This Refactoring?
+## 📦 SmartGrocy Features
 
-### Before (Prototype) → After (Production-Ready)
+### Modern Pipeline với Data Quality Monitoring
 
-| Component | Before ❌ | After ✅ |
-|-----------|----------|---------|
-| **Data Granularity** | Raw transactions (inconsistent) | Aggregated weekly `[PRODUCT_ID, STORE_ID, WEEK_NO]` |
-| **Missing Periods** | Ignored (gaps in time series) | Zero-filled complete grid |
-| **Train/Test Split** | Random shuffle 🚨 **LEAKAGE** | Time-based (weeks 1-83 vs 84-104) |
-| **Lag Features** | Subtle leakage in rollings | 100% leak-safe (on lagged series) |
-| **Model Type** | Single regression | 3 quantile models (Q05/Q50/Q95) |
-| **Evaluation Metric** | RMSE (wrong for quantile) | Pinball loss (correct) |
-| **Tests** | None | 6 smoke tests + validation script + comprehensive testing |
-| **Dev Tooling** | None | ruff, black, isort, mypy (removed pre-commit) |
-| **Dashboard** | None | Interactive HTML with Plotly charts |
-| **License** | None | MIT License |
+| Component | SmartGrocy ✅ |
+|-----------|----------------|
+| **Pipeline Orchestration** | Prefect-based DAG workflow |
+| **Data Quality Monitoring** | Great Expectations + custom validations |
+| **Alerting System** | Tự động cảnh báo chất lượng dữ liệu và lỗi pipeline |
+| **Intelligent Caching** | Tối ưu hóa hiệu năng với disk-based caching |
+| **Performance Monitoring** | Theo dõi bottleneck và tối hóa tài nguyên |
+| **Drift Detection** | Phát hiện thay đổi phân phối dữ liệu theo thời gian |
+| **Data Granularity** | Aggregated weekly `[PRODUCT_ID, STORE_ID, WEEK_NO]` |
+| **Missing Periods** | Zero-filled complete grid |
+| **Train/Test Split** | Time-based (weeks 1-83 vs 84-104) - leak-safe |
+| **Lag Features** | 100% leak-safe (on lagged series) |
+| **Model Type** | 7 quantile models (Q05/Q10/Q25/Q50/Q75/Q90/Q95) |
+| **Evaluation Metric** | Pinball loss + Prediction Interval Coverage |
+| **Tests** | 6 smoke tests + validation script + comprehensive testing |
+| **Dev Tooling** | ruff, black, isort, mypy |
+| **Dashboard** | Interactive HTML with Plotly charts |
+| **License** | MIT License |
 
-**Bottom Line:** The refactored pipeline is now **demo-ready with interactive dashboard, leak-safe, probabilistic, and production-ready**.
+**Bottom Line:** SmartGrocy là **hệ thống dự báo hiện đại với monitoring chất lượng dữ liệu, leak-safe, probabilistic, và production-ready**.
 
 ---
 
@@ -66,36 +70,32 @@ python scripts/create_dashboard.py
 ### Step 1: Install Dependencies (2 minutes)
 
 ```bash
-# Core dependencies (pandas, lightgbm, etc.)
+# Core dependencies (pandas, lightgbm, prefect, great_expectations, etc.)
 pip install -r requirements.txt
-
-# Dev tools (pytest, ruff, black, mypy)
-pip install -r requirements-dev.txt
-
-# Optional: Set up development tools
-# Note: Pre-commit hooks removed for demo purposes
 ```
 
-### Step 2: Create Sample Data (30 seconds)
+**Key Dependencies:**
+- **Prefect**: Pipeline orchestration và workflow management
+- **Great Expectations**: Data quality monitoring và validation
+- **LightGBM/XGBoost**: Machine learning models
+- **Polars/Pandas**: High-performance data processing
+- **Plotly**: Interactive dashboards
 
-The full Dunnhumby dataset has 2.6M rows. For quick testing, create a 1% sample:
+### Step 2: Setup Data Quality Monitoring (1 minute)
+
+Khởi tạo hệ thống monitoring chất lượng dữ liệu:
 
 ```bash
-python scripts/create_sample_data.py
+python scripts/setup_data_quality.py
 ```
 
-**Output:**
-```
-Saved transaction_data.csv: 2,567,940 -> 25,679 rows (1.00%)
-Saved product.csv: 92,353 -> 924 rows (1.00%)
-Saved causal_data.csv: 36,786,524 -> 367,865 rows (1.00%)
-...
-Sample data created in: data/poc_data/
-```
+**What happens:**
+- Tạo Great Expectations configuration
+- Setup data validation rules
+- Khởi tạo alerting system
+- Tạo data quality checkpoints
 
-This creates `data/poc_data/` with small samples for fast iteration.
-
-### Step 3: Validate Setup (10 seconds)
+### Step 4: Validate Setup (10 seconds)
 
 Run the validation script to ensure everything is configured correctly:
 
@@ -152,27 +152,30 @@ tests/test_smoke.py::test_directory_structure PASSED
 ============== 6 passed in 28.43s ==============
 ```
 
-### Step 5: Run Full Pipeline (1-2 minutes on POC data)
+### Step 5: Run Modern Pipeline với Monitoring (2-5 minutes)
 
-Now run the entire pipeline end-to-end:
+Chạy pipeline hiện đại với data quality monitoring:
 
 ```bash
-python src/pipelines/_04_run_pipeline.py
+python run_modern_pipeline.py --full-data
 ```
 
 **What Happens:**
-1. **Data Loading:** Reads CSVs from `data/poc_data/` (default for development) or `data/2_raw/` (full dataset)
-2. **WS0 (Aggregation):** Aggregates transactions to weekly level, creates master grid
-3. **WS1 (Relational):** Joins product and household demographics
-4. **WS2 (Time-Series):** Creates leak-safe lag/rolling features
-5. **WS4 (Price/Promo):** Adds promotion indicators and price features
-6. **Saves:** `data/processed/master_feature_table.parquet`
-7. **Training:** Trains Q05/Q50/Q95 quantile models
-8. **Saves:** `models/q{05,50,95}_forecaster.joblib` + metrics
+1. **Data Quality Check:** Validate data quality với Great Expectations
+2. **Pipeline Orchestration:** Prefect manages workflow execution
+3. **Data Loading:** Reads từ `data/2_raw/` hoặc `data/1_poc_data/`
+4. **WS0 (Aggregation):** Aggregates transactions to weekly level, creates master grid
+5. **WS1 (Relational):** Joins product và household demographics
+6. **WS2 (Time-Series):** Creates leak-safe lag/rolling features
+7. **WS4 (Price/Promo):** Adds promotion indicators và price features
+8. **WS5-WS6:** Additional features (stockout recovery, weather)
+9. **Quality Validation:** Continuous data quality checks
+10. **Training:** Trains 7 quantile models (Q05/Q10/Q25/Q50/Q75/Q90/Q95)
+11. **Saves:** Models + metrics + quality reports
 
 **Expected Runtime:**
-- POC data (1%): ~60 seconds
-- Full data (100%): ~45 minutes
+- POC data (1%): ~2 minutes
+- Full data (100%): ~45 minutes với monitoring
 
 ---
 
@@ -247,23 +250,43 @@ week_sin/cos  # Cyclical encoding
 
 **File:** `src/features/ws4_price_features.py`
 
-### Model Training: Quantile Regression
+### WS5: Stockout Recovery Features
+
+**What it does:**
+- Detects và handles stockout patterns
+- Creates recovery indicators sau stockouts
+- Models demand recovery behavior
+
+**File:** `src/features/ws5_stockout_recovery.py`
+
+### WS6: Weather Features (Optional)
+
+**What it does:**
+- Integrates weather data nếu available
+- Creates weather impact features
+- Seasonal weather patterns
+
+**File:** `src/features/ws6_weather_features.py`
+
+### Model Training: Enhanced Quantile Regression
 
 **What it does:**
 1. **Time-based split:** Train on weeks 1-83, test on weeks 84-104
-2. **Train 3 models:**
-   - Q05: Lower bound (5th percentile)
-   - Q50: Median forecast
-   - Q95: Upper bound (95th percentile)
-3. **Evaluate:** Pinball loss (correct metric for quantile regression)
-4. **Save:** 3 model files + feature config + metrics
+2. **Train 7 models:**
+   - Q05/Q10/Q25: Lower bounds (5th/10th/25th percentiles)
+   - Q50: Median forecast (best estimate)
+   - Q75/Q90/Q95: Upper bounds (75th/90th/95th percentiles)
+3. **Evaluate:** Pinball loss + Prediction Interval Coverage
+4. **Ensemble:** Weighted combination của multiple quantiles
+5. **Save:** 7 model files + feature config + metrics
 
-**Why quantile models?**
-- **Probabilistic forecasting:** Get prediction intervals, not just point estimates
-- **Inventory optimization:** Safety stock = Q95 - Q50
-- **Dynamic pricing:** If current stock > Q05 × days_to_expiry, trigger discount
+**Why 7 quantile models?**
+- **Granular probabilistic forecasting:** Chi tiết hơn về uncertainty
+- **Better inventory optimization:** Multiple safety stock levels
+- **Enhanced dynamic pricing:** Flexible discounting strategies
+- **Ensemble methods:** Combine predictions for better accuracy
 
-**File:** `src/pipelines/_03_model_training.py`
+**Files:** `src/pipelines/_03_model_training.py`, `src/pipelines/_06_ensemble.py`
 
 ---
 
@@ -290,13 +313,17 @@ print(df.head())
 - `is_on_display`, `is_on_mailer` (promotion flags)
 - `week_of_year`, `month_proxy` (calendar)
 
-### 2. Trained Models: `models/q{05,50,95}_forecaster.joblib`
+### 2. Trained Models: `models/q{05,10,25,50,75,90,95}_forecaster.joblib`
 
 ```python
 import joblib
 
-model_q50 = joblib.load('models/q50_forecaster.joblib')
-print(model_q50)  # LGBMRegressor(objective='quantile', alpha=0.5, ...)
+# Load 7 quantile models
+models = {}
+for q in [0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95]:
+    models[q] = joblib.load(f'models/q{int(q*100):02d}_forecaster.joblib')
+
+print(models[0.50])  # LGBMRegressor(objective='quantile', alpha=0.5, ...)
 ```
 
 ### 3. Metrics: `reports/metrics/quantile_model_metrics.json`
@@ -304,21 +331,24 @@ print(model_q50)  # LGBMRegressor(objective='quantile', alpha=0.5, ...)
 ```json
 {
   "q05_pinball_loss": 12.34,
-  "q05_rmse": 45.67,
-  "q50_pinball_loss": 18.76,
-  "q50_rmse": 38.21,
-  "q95_pinball_loss": 14.52,
-  "q95_rmse": 51.34,
-  "prediction_interval_coverage": 0.897
+  "q10_pinball_loss": 15.67,
+  "q25_pinball_loss": 18.21,
+  "q50_pinball_loss": 20.45,
+  "q75_pinball_loss": 22.12,
+  "q90_pinball_loss": 24.89,
+  "q95_pinball_loss": 26.34,
+  "prediction_interval_coverage_90": 0.897,
+  "prediction_interval_coverage_80": 0.856,
+  "ensemble_pinball_loss": 19.23
 }
 ```
 
 **How to interpret:**
 - **Pinball loss:** Lower is better (measures quantile accuracy)
-- **RMSE:** For reference (Q50 should have lowest RMSE)
-- **Coverage:** Should be ~90% for P90 interval (Q05-Q95)
-  - If 89.7%, model is well-calibrated ✅
-  - If <80% or >95%, model is mis-calibrated ⚠️
+- **Coverage:** Should be ~80-90% for intervals
+  - 90% interval (Q05-Q95): target ~90%
+  - 80% interval (Q10-Q90): target ~80%
+- **Ensemble:** Combined prediction quality
 
 ---
 
@@ -327,10 +357,13 @@ print(model_q50)  # LGBMRegressor(objective='quantile', alpha=0.5, ...)
 ### Run Individual Smoke Tests
 
 ```bash
-# Test just the aggregation
+# Test data loading
+pytest tests/test_smoke.py::test_data_loader -v
+
+# Test aggregation
 pytest tests/test_smoke.py::test_ws0_aggregation -v
 
-# Test just the time-series features
+# Test time-series features
 pytest tests/test_smoke.py::test_ws2_timeseries_features -v
 
 # Test time-based split
@@ -350,11 +383,21 @@ mypy src/
 ### Debug a Single Stage
 
 ```bash
-# Run only feature enrichment (skips training)
-python src/pipelines/_02_feature_enrichment.py
+# Run modern pipeline với monitoring
+python run_modern_pipeline.py
 
-# Run only model training (requires master_feature_table.parquet to exist)
-python src/pipelines/_03_model_training.py
+# Hoặc run từng stage riêng lẻ:
+# Data loading
+python -c "from src.pipelines._01_load_data import load_data; dataframes, config = load_data(); print('Data loaded')"
+
+# Feature enrichment
+python -c "from src.pipelines._02_feature_enrichment import main; main()"
+
+# Model training
+python -c "from src.pipelines._03_model_training import main; main()"
+
+# Ensemble predictions
+python -c "from src.pipelines._06_ensemble import main; main()"
 ```
 
 ---
@@ -387,23 +430,18 @@ safety_stock = forecast_q95 - forecast_q50
 
 ### Q: How do I run on the full dataset (not POC)?
 
-Set the DATA_SOURCE environment variable to force full data:
+Modern pipeline tự động detect và sử dụng full dataset:
 
 ```bash
-# Linux/Mac
+# Chạy trên full dataset từ data/2_raw/
+python run_modern_pipeline.py --full-data
+
+# Hoặc chỉ định rõ:
 export DATA_SOURCE=full
-python src/pipelines/_04_run_pipeline.py
-
-# Windows PowerShell
-$env:DATA_SOURCE="full"
-python src/pipelines/_04_run_pipeline.py
-
-# Windows CMD
-set DATA_SOURCE=full
-python src/pipelines/_04_run_pipeline.py
+python run_modern_pipeline.py --full-data
 ```
 
-**Note:** Full dataset requires 8GB+ RAM and ~45 minutes runtime.
+**Note:** Full dataset requires 16GB+ RAM và ~45 minutes runtime với monitoring.
 
 ### Q: What if I get import errors?
 
@@ -456,24 +494,28 @@ Both tests explicitly check for leakage:
 
 ## ✅ Success Checklist
 
-Before considering the pipeline "working", verify:
+Before considering SmartGrocy "working", verify:
 
+- [ ] ✅ Data quality setup: `python scripts/setup_data_quality.py`
 - [ ] ✅ Validation script passes: `python scripts/validate_setup.py`
 - [ ] ✅ All smoke tests pass: `pytest tests/test_smoke.py -v -m smoke`
-- [ ] ✅ Pipeline runs successfully: `python src/pipelines/_04_run_pipeline.py`
-- [ ] ✅ 3 model files saved: `models/q{05,50,95}_forecaster.joblib`
+- [ ] ✅ Modern pipeline runs: `python run_modern_pipeline.py --full-data`
+- [ ] ✅ 7 model files saved: `models/q{05,10,25,50,75,90,95}_forecaster.joblib`
 - [ ] ✅ Metrics file created: `reports/metrics/quantile_model_metrics.json`
-- [ ] ✅ Prediction interval coverage ~90%: Check `prediction_interval_coverage` in metrics
+- [ ] ✅ Ensemble predictions: `reports/ensemble_predictions.csv`
+- [ ] ✅ Dashboard created: `reports/dashboard/index.html`
+- [ ] ✅ Data quality reports: Check alerting logs
 
 ---
 
 ## 📚 Documentation
 
-For detailed information about specific components:
+For detailed information about SmartGrocy:
 
-- **[Xử lý Missing Values](./MISSING_VALUES_HANDLING.md)**: Chi tiết về chiến lược xử lý missing values trong pipeline
-- **[CHANGELOG](./CHANGELOG.md)**: Lịch sử thay đổi và updates
-- **[CONTRIBUTING](./CONTRIBUTING.md)**: Hướng dẫn đóng góp cho dự án
+- **[OPERATIONS.md](./OPERATIONS.md)**: Hướng dẫn deployment và vận hành production
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)**: Hướng dẫn đóng góp cho dự án
+- **[CHANGELOG.md](./CHANGELOG.md)**: Lịch sử thay đổi và updates
+- **[TEST_README.md](./TEST_README.md)**: Tài liệu về testing và validation
 
 ---
 

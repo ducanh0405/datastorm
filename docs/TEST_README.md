@@ -2,7 +2,7 @@
 
 ## Tổng quan
 
-Script `test_project_comprehensive.py` là công cụ test toàn diện cho dự án E-Grocery Forecaster, kiểm tra tất cả các thành phần quan trọng của hệ thống.
+Script `test_project_comprehensive.py` là công cụ test toàn diện cho dự án SmartGrocy, kiểm tra tất cả các thành phần quan trọng của hệ thống.
 
 ## Cách sử dụng
 

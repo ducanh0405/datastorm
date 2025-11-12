@@ -9,23 +9,18 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-# Import centralized config
+# Import centralized config and monitoring
 try:
-    from src.config import VALIDATION_CONFIG, setup_logging
+    from src.config import DATA_QUALITY_CONFIG, setup_logging
+    from src.utils.alerting import alert_manager
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError:
     # Fallback
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logger = logging.getLogger(__name__)
-    VALIDATION_CONFIG = {
-        'required_columns': ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO', 'SALES_VALUE'],
-        'data_ranges': {
-            'SALES_VALUE': (0, None),
-            'QUANTITY': (0, None),
-            'WEEK_NO': (1, 104),
-            'discount_pct': (0, 1),
-        },
+    alert_manager = None
+    DATA_QUALITY_CONFIG = {
         'quality_thresholds': {
             'excellent': 90,
             'good': 75,
@@ -202,7 +197,7 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
     if verbose:
         logging.info("\n--- Required Columns ---")
 
-    required_cols = ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO', 'SALES_VALUE']
+    required_cols = VALIDATION_CONFIG.get('required_columns', ['PRODUCT_ID', 'STORE_ID', 'WEEK_NO', 'SALES_VALUE'])
     col_check = check_required_columns(df, required_cols)
     validation_results['required_columns'] = col_check
 
@@ -256,15 +251,20 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
     validation_results['issues'] = issues
     validation_results['passed'] = len(issues) == 0 and len(missing_cols) == 0
 
-    # 8. Summary
+    # 8. Summary and Alerting
+    quality_score = validation_results['quality_score']
+    dataset_name = getattr(df, '_dataset_name', 'unknown_dataset')  # Try to get dataset name
+
     if verbose:
         logging.info("\n--- Validation Summary ---")
-        logging.info(f"  Quality Score: {validation_results['quality_score']}/100")
-        if validation_results['quality_score'] >= 90:
+        logging.info(f"  Quality Score: {quality_score}/100")
+
+        thresholds = DATA_QUALITY_CONFIG.get('quality_thresholds', {})
+        if quality_score >= thresholds.get('excellent', 90):
             logging.info("  Status: EXCELLENT")
-        elif validation_results['quality_score'] >= 75:
+        elif quality_score >= thresholds.get('good', 75):
             logging.info("  Status: GOOD")
-        elif validation_results['quality_score'] >= 60:
+        elif quality_score >= thresholds.get('fair', 60):
             logging.warning("  Status: FAIR")
         else:
             logging.error("  Status: POOR")
@@ -275,6 +275,12 @@ def comprehensive_validation(df: pd.DataFrame, verbose: bool = True) -> dict[str
                 logging.warning(f"    - {issue}")
         else:
             logging.info("  No issues found")
+
+    # Send alerts for quality issues
+    if alert_manager and issues:
+        alert_threshold = DATA_QUALITY_CONFIG.get('alerting', {}).get('alert_on_quality_below', 70)
+        if quality_score < alert_threshold:
+            alert_manager.alert_data_quality_issue(dataset_name, quality_score, issues)
 
     logging.info("[Validation] Comprehensive validation complete.")
 

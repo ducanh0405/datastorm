@@ -1,6 +1,6 @@
-# 🤝 Contributing to E-Grocery Forecaster
+# 🤝 Contributing to SmartGrocy
 
-Thank you for your interest in contributing to E-Grocery Forecaster! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to SmartGrocy! This document provides guidelines and information for contributors.
 
 ## 📋 Table of Contents
 - [Code of Conduct](#code-of-conduct)
@@ -27,7 +27,7 @@ This project follows a code of conduct to ensure a welcoming environment for all
 ```bash
 # Clone the repository
 git clone https://github.com/ducanh0405/datastorm.git
-cd E-Grocery_Forecaster
+cd SmartGrocy
 
 # Create virtual environment
 python -m venv venv
@@ -35,13 +35,18 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 
-# Create sample data for testing
+# Setup data quality monitoring
+python scripts/setup_data_quality.py
+
+# Create sample data for testing (optional)
 python scripts/create_sample_data.py
 
 # Run validation
 python scripts/validate_setup.py
+
+# Test modern pipeline
+python run_modern_pipeline.py
 ```
 
 ## 🛠️ Development Setup
@@ -66,21 +71,28 @@ mypy src/
 ## 🏗️ Project Structure
 
 ```
-E-Grocery_Forecaster/
+SmartGrocy/
 ├── src/                          # Production code
 │   ├── pipelines/               # ML pipeline stages
+│   │   ├── _00_modern_orchestrator.py # Prefect orchestration
 │   │   ├── _01_load_data.py     # Data loading
 │   │   ├── _02_feature_enrichment.py  # Feature engineering
-│   │   ├── _03_model_training.py      # Model training
-│   │   ├── _04_run_pipeline.py        # Pipeline orchestration
-│   │   └── _05_prediction.py          # Inference & prediction
-│   ├── features/                # Feature engineering modules
-│   │   ├── ws0_aggregation.py         # Data aggregation
+│   │   ├── _03_model_training.py      # Quantile model training
+│   │   ├── _04_run_pipeline.py        # Legacy pipeline
+│   │   ├── _05_prediction.py          # Inference & prediction
+│   │   └── _06_ensemble.py            # Ensemble predictions
+│   ├── features/                # Feature engineering workstreams
+│   │   ├── ws0_aggregation.py         # Data aggregation & grid
 │   │   ├── ws1_relational_features.py # Relational features
 │   │   ├── ws2_timeseries_features.py # Time-series features
 │   │   ├── ws3_behavior_features.py   # Behavioral features
-│   │   └── ws4_price_features.py      # Price/promo features
+│   │   ├── ws4_price_features.py      # Price/promo features
+│   │   ├── ws5_stockout_recovery.py   # Stockout recovery features
+│   │   └── ws6_weather_features.py    # Weather features
 │   └── utils/                   # Utilities
+│       ├── alerting.py          # Alerting & notifications
+│       ├── caching.py           # Intelligent caching
+│       ├── data_quality.py      # Data quality monitoring
 │       ├── validation.py        # Data validation
 │       └── visualization.py     # Dashboard & charts
 ├── scripts/                     # Utility scripts
@@ -201,7 +213,7 @@ For new features, please include:
 
 ## 🙏 Acknowledgments
 
-Thank you to all contributors who help make E-Grocery Forecaster better! Your contributions, whether code, documentation, or feedback, are greatly appreciated.
+Thank you to all contributors who help make SmartGrocy better! Your contributions, whether code, documentation, or feedback, are greatly appreciated.
 
 ---
 

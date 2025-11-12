@@ -1,6 +1,6 @@
-# 🚀 Operations & Deployment Guide - E-Grocery Forecaster
+# 🚀 Operations & Deployment Guide - SmartGrocy
 
-This guide covers operational aspects of deploying and maintaining the E-Grocery Forecaster system in production environments.
+This guide covers operational aspects of deploying and maintaining the SmartGrocy system in production environments.
 
 ## 📋 Table of Contents
 - [System Requirements](#system-requirements)
@@ -33,7 +33,7 @@ This guide covers operational aspects of deploying and maintaining the E-Grocery
 ```bash
 # Clone repository
 git clone https://github.com/ducanh0405/datastorm.git
-cd E-Grocery_Forecaster
+cd SmartGrocy
 
 # Create virtual environment
 python -m venv venv
@@ -41,16 +41,15 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 
-# Create sample data for testing
-python scripts/create_sample_data.py
+# Setup data quality monitoring
+python scripts/setup_data_quality.py
 
-# Validate setup
-python scripts/validate_setup.py
+# Run modern pipeline with monitoring
+python run_modern_pipeline.py --full-data
 
-# Run pipeline
-python src/pipelines/_04_run_pipeline.py
+# Monitor data quality
+python scripts/monitor_data_quality.py
 
 # Generate dashboard
 python scripts/create_dashboard.py
@@ -108,27 +107,37 @@ mkdir -p reports/dashboard
 
 ### 3. Initial Pipeline Run
 ```bash
-# Run full pipeline with production data
-python src/pipelines/_04_run_pipeline.py
+# Setup data quality monitoring for production
+python scripts/setup_data_quality.py
+
+# Run modern pipeline with full monitoring
+python run_modern_pipeline.py --full-data
 
 # This will:
+# - Validate data quality with Great Expectations
+# - Orchestrate pipeline with Prefect
 # - Load data from data/2_raw/
-# - Process 2.6M+ transactions
-# - Train quantile models (may take 30-60 minutes)
-# - Generate feature tables and models
+# - Process 2.6M+ transactions with quality checks
+# - Train 7 quantile models (may take 45-60 minutes)
+# - Generate feature tables, models, and quality reports
 ```
 
 ### 4. Model Validation
 ```bash
-# Validate trained models
-python src/pipelines/_05_prediction.py
+# Run predictions on test set
+python -c "from src.pipelines._05_prediction import main; main()"
+
+# Generate ensemble predictions
+python -c "from src.pipelines._06_ensemble import main; main()"
 
 # Check model metrics
 cat reports/metrics/quantile_model_metrics.json
 
 # Expected metrics:
 # - Q50 Pinball Loss: < 0.05
-# - Prediction Interval Coverage: ~80-95%
+# - Prediction Interval Coverage (80%): ~80%
+# - Prediction Interval Coverage (90%): ~90%
+# - Ensemble Pinball Loss: < 0.06
 ```
 
 ## 🌐 Model Serving

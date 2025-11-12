@@ -1,0 +1,33 @@
+{
+  "pipeline": {
+    "orchestrator": "prefect",
+    "enable_caching": true,
+    "enable_incremental_processing": true,
+    "max_parallel_jobs": 4
+  },
+  "data_quality": {
+    "enable_great_expectations": true,
+    "enable_drift_detection": true,
+    "quality_check_frequency": "per_stage",
+    "baseline_update_frequency": "weekly"
+  },
+  "alerting": {
+    "enable_email_alerts": false,
+    "enable_slack_alerts": false,
+    "alert_on_quality_below": 75,
+    "alert_on_drift_detected": true,
+    "alert_on_pipeline_failure": true
+  },
+  "performance": {
+    "enable_monitoring": true,
+    "memory_threshold_mb": 8000,
+    "time_budget_hours": 4,
+    "enable_profiling": false
+  },
+  "caching": {
+    "cache_dir": "cache",
+    "max_cache_size_gb": 20,
+    "default_expiry_hours": 48,
+    "compress_cache": true
+  }
+}

@@ -56,20 +56,22 @@ def enrich_relational_features(
         master_df = pd.merge(master_df, df_prod, on='PRODUCT_ID', how='left')
 
         # Check merge success
-        matched_products = master_df['MANUFACTURER'].notna().sum()
+        matched_products = master_df['MANUFACTURER'].notna().sum() if 'MANUFACTURER' in master_df.columns else 0
 
         logging.info(f"  Merged product data: {original_shape} -> {master_df.shape}")
         logging.info(f"  Product matching: {matched_products:,}/{len(master_df):,} rows have product info")
 
+        # LỚP 2: Fill NaN cho categorical columns sau join (luôn luôn)
+        # Đảm bảo không có NaN trong categorical features trước khi chuyển sang category dtype
+        product_cols = ['MANUFACTURER', 'DEPARTMENT', 'BRAND', 'COMMODITY_DESC', 'SUB_COMMODITY_DESC']
+        for col in product_cols:
+            if col in master_df.columns:
+                master_df[col] = master_df[col].fillna('Unknown')
+        logger.info(f"  ✓ Filled NaN in product categorical columns with 'Unknown'")
+
         if matched_products == 0:
             logger.error("  CRITICAL ERROR: No products matched! WS1 relational features failed.")
             logger.error("  SOLUTION: Recreate POC data with PRODUCT_ID matching validation")
-            # Fill with defaults to prevent NaN issues downstream
-            product_cols = ['MANUFACTURER', 'DEPARTMENT', 'BRAND', 'COMMODITY_DESC', 'SUB_COMMODITY_DESC', 'CURR_SIZE_OF_PRODUCT']
-            for col in product_cols:
-                if col in master_df.columns:
-                    master_df[col] = master_df[col].fillna('Unknown')
-            logging.info("  ✅ Filled missing product data with 'Unknown' defaults")
         elif matched_products < len(master_df) * 0.1:
             logger.warning(f"  ⚠️  Only {matched_products/len(master_df)*100:.1f}% products have info - limited coverage")
         else:
@@ -91,6 +93,15 @@ def enrich_relational_features(
                 original_shape = master_df.shape
                 master_df = pd.merge(master_df, df_hh, on='household_key', how='left')
                 logging.info(f"  Merged household demographics: {original_shape} -> {master_df.shape}")
+                
+                # LỚP 2: Fill NaN cho household categorical columns sau join (luôn luôn)
+                hh_categorical_cols = ['AGE_DESC', 'MARITAL_STATUS_CODE', 'INCOME_DESC', 'HOMEOWNER_DESC', 
+                                      'HH_COMP_DESC', 'HOUSEHOLD_SIZE_DESC', 'KID_CATEGORY_DESC']
+                for col in hh_categorical_cols:
+                    if col in master_df.columns:
+                        master_df[col] = master_df[col].fillna('Unknown')
+                logger.info(f"  ✓ Filled NaN in household categorical columns with 'Unknown'")
+                            
             except pd.errors.MergeError as e:
                 logger.error(f"ERROR in WS1 household merge: {e}")
                 # Don't raise - continue without household data

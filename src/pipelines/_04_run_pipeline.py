@@ -30,6 +30,10 @@ def run_script(script_name, extra_args=None):
         cmd.extend(extra_args)
         logging.info(f"With arguments: {' '.join(extra_args)}")
 
+    # Set up environment with proper PYTHONPATH
+    env = dict(os.environ)
+    env['PYTHONPATH'] = str(PROJECT_ROOT)
+
     process = subprocess.run(
         cmd,
         capture_output=True,
@@ -37,7 +41,7 @@ def run_script(script_name, extra_args=None):
         encoding='utf-8',
         errors='replace',
         cwd=PROJECT_ROOT,
-        env=dict(os.environ)  # Pass environment variables
+        env=env  # Pass environment variables with PYTHONPATH
     )
 
     if process.returncode != 0:
@@ -55,9 +59,9 @@ def run_script(script_name, extra_args=None):
 
 def main():
     """
-    Orchestrates the entire E-Grocery Forecaster project with optional memory optimizations.
+    Orchestrates the entire SmartGrocy project with optional memory optimizations.
     """
-    parser = argparse.ArgumentParser(description='Run full E-Grocery Forecaster pipeline')
+    parser = argparse.ArgumentParser(description='Run full SmartGrocy pipeline')
     parser.add_argument('--full-data', action='store_true', 
                        help='Use full data from data/2_raw with memory optimizations (32GB RAM recommended)')
     args = parser.parse_args()

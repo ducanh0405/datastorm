@@ -1,9 +1,15 @@
-# 📋 Changelog - E-Grocery Forecaster
+# 📋 Changelog - SmartGrocy
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### 📝 Changed
+- **Project Rename**: Renamed from "E-Grocery Forecaster" to "SmartGrocy" across all documentation and code
+- **Updated Documentation**: Refreshed all docs to reflect modern pipeline and current project structure
 
 ## [2.0.0] - 2025-11-09
 
@@ -59,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-10-01
 
 ### Added
-- Initial E-Grocery Forecaster implementation
+- Initial SmartGrocy implementation
 - Basic time-series forecasting pipeline
 - Feature engineering workstreams (WS0-WS4)
 - LightGBM regression models

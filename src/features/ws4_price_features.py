@@ -189,11 +189,13 @@ def add_price_promotion_features(
                 "Possible row explosion in causal data!"
             )
 
-        # Fill 0 for products/weeks not in causal file (meaning no promotion)
-        if 'is_on_display' in master_df.columns:
-            master_df['is_on_display'] = master_df['is_on_display'].fillna(0).astype(int)
-        if 'is_on_mailer' in master_df.columns:
-            master_df['is_on_mailer'] = master_df['is_on_mailer'].fillna(0).astype(int)
+        # LỚP 2: Fill 0 cho các cờ khuyến mãi sau khi merge (luôn luôn)
+        # Đảm bảo không có NaN trong promotion flags
+        promo_flags = ['is_on_display', 'is_on_mailer']
+        for col in promo_flags:
+            if col in master_df.columns:
+                master_df[col] = master_df[col].fillna(0).astype(int)
+        logger.info("  ✓ Filled NaN in promotion flags with 0")
 
         logger.info("OK. WS4 (Price/Promotion) integration complete.")
 
