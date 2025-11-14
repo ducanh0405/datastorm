@@ -34,8 +34,11 @@ try:
     # 3. Import validation
     from src.utils.validation import comprehensive_validation
     
-    # 4. Import parallel processing
-    from src.utils.parallel_processing import parallel_groupby_apply
+    # FIX Task 1.2 - Removed unused import after removing nested parallelism
+    # from src.utils.parallel_processing import parallel_groupby_apply
+    
+    # FIX Task 1.3 - Import performance monitoring
+    from src.utils.performance_monitor import performance_monitor
 
 except ImportError as e:
     logger = logging.getLogger(__name__)
@@ -91,25 +94,15 @@ def main() -> None:
     logger.info("--- (4/8) Workstream 5: Stockout Recovery ---")
     if config['has_stockout']:
         try:
-            # Tối ưu hóa WS5 bằng cách sử dụng parallel_groupby_apply
-            n_jobs = PERFORMANCE_CONFIG['parallel_threads']
+            # FIX Task 1.2 - Removed nested parallelism
+            # WS5 functions already handle grouping internally, no need for parallel_groupby_apply wrapper
+            logger.info("Running WS5 (Latent Demand)...")
+            master_df = ws5.recover_latent_demand(master_df, config)
             
-            logger.info(f"Running WS5 (Latent Demand) in parallel ({n_jobs} jobs)...")
-            master_df = parallel_groupby_apply(
-                master_df,
-                group_cols=['product_id', 'store_id'],
-                func=ws5.recover_latent_demand, # Giả định ws5.py có hàm này
-                n_jobs=n_jobs
-            )
+            logger.info("Running WS5 (Stockout Features)...")
+            master_df = ws5.add_stockout_features(master_df, config)
             
-            logger.info(f"Running WS5 (Stockout Features) in parallel ({n_jobs} jobs)...")
-            master_df = parallel_groupby_apply(
-                master_df,
-                group_cols=['product_id', 'store_id'],
-                func=ws5.add_stockout_features, # Giả định ws5.py có hàm này
-                n_jobs=n_jobs
-            )
-            logger.info(f"✓ WS5 complete (parallel) - Shape: {master_df.shape}")
+            logger.info(f"✓ WS5 complete - Shape: {master_df.shape}")
         except Exception as e:
             logger.warning(f"SKIPPING WS5: Error occurred: {e}", exc_info=True)
     else:
@@ -120,8 +113,10 @@ def main() -> None:
     if config['has_weather']:
         if 'weather' in dataframes and dataframes['weather'] is not None:
             try:
-                master_df = ws6.merge_weather_data(master_df, dataframes['weather'])
-                master_df = ws6.create_weather_features(master_df)
+                # FIX Task 1.3 - Monitor WS6 performance
+                with performance_monitor.time_operation('WS6_weather_features', {'has_weather': True}):
+                    master_df = ws6.merge_weather_data(master_df, dataframes['weather'])
+                    master_df = ws6.create_weather_features(master_df)
                 logger.info(f"✓ WS6 complete - Shape: {master_df.shape}")
             except Exception as e:
                 logger.warning(f"SKIPPING WS6: Error occurred: {e}", exc_info=True)
@@ -133,8 +128,13 @@ def main() -> None:
     # 6. WS2: Time-Series (Luôn chạy, hàm bên trong đã config-driven)
     logger.info("--- (6/8) Workstream 2: Time-Series Features ---")
     try:
-        # Hàm này sẽ tự động đọc config để chạy đúng lags, rolling, intraday
-        master_df = ws2.add_timeseries_features_config(master_df, config)
+        # FIX Task 1.3 - Monitor WS2 performance (typically the slowest workstream)
+        with performance_monitor.time_operation('WS2_timeseries_features', {
+            'lag_periods': config.get('lag_periods', []),
+            'rolling_windows': config.get('rolling_windows', [])
+        }):
+            # Hàm này sẽ tự động đọc config để chạy đúng lags, rolling, intraday
+            master_df = ws2.add_timeseries_features_config(master_df, config)
         logger.info(f"✓ WS2 complete - Shape: {master_df.shape}")
     except Exception as e:
         logger.error(f"ERROR during WS2 (Time-Series): {e}", exc_info=True)

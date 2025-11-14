@@ -44,6 +44,9 @@ import json
 from typing import Dict, Tuple, List, Any, Optional
 import argparse
 
+# FIX Task 2.1 - Import feature selection utilities
+from src.features.feature_selection import get_optimal_features
+
 # Import optional models
 try:
     import catboost as cb
@@ -73,43 +76,42 @@ def load_data(filepath: Path) -> pd.DataFrame:
 def get_features_from_config(config: Dict) -> Tuple[List[str], List[str]]:
     """
     Builds the feature lists dynamically based on dataset config toggles.
+    
+    FIX Task 2.2 - Refactored to use new dict-based ALL_FEATURES_CONFIG with type metadata
     """
     logger.info("Building feature list from config toggles...")
     all_features = []
+    categorical_features = []
+    
+    # Helper function to add features from workstream
+    def add_workstream_features(ws_name: str):
+        if ws_name in ALL_FEATURES_CONFIG:
+            for feat in ALL_FEATURES_CONFIG[ws_name]:
+                all_features.append(feat['name'])
+                if feat['type'] == 'cat':
+                    categorical_features.append(feat['name'])
     
     # Base timeseries features (luôn có)
-    all_features.extend(ALL_FEATURES_CONFIG['timeseries_base'])
+    add_workstream_features('timeseries_base')
     
-    # Các feature tùy chọn
-    if config['has_relational']:
-        all_features.extend(ALL_FEATURES_CONFIG['relational'])
-    if config['has_intraday_patterns']:
-        all_features.extend(ALL_FEATURES_CONFIG['intraday_patterns'])
-    if config['has_behavior']:
-        all_features.extend(ALL_FEATURES_CONFIG['behavior'])
-    if config['has_price_promo']:
-        all_features.extend(ALL_FEATURES_CONFIG['price_promo'])
-    if config['has_stockout']:
-        all_features.extend(ALL_FEATURES_CONFIG['stockout'])
-    if config['has_weather']:
-        all_features.extend(ALL_FEATURES_CONFIG['weather'])
-
-    # Lấy danh sách categorical features từ config
-    all_categorical = []
-    for ws_features in ALL_FEATURES_CONFIG.values():
-        all_categorical.extend(ws_features) # Tạm lấy tất cả
-        
-    # Lọc features thực sự tồn tại trong DataFrame
-    logger.info("Finding categorical features...")
+    # Các feature tùy chọn dựa trên config toggles
+    if config.get('has_relational', False):
+        add_workstream_features('relational')
+    if config.get('has_intraday_patterns', False):
+        add_workstream_features('intraday_patterns')
+    if config.get('has_behavior', False):
+        add_workstream_features('behavior')
+    if config.get('has_price_promo', False):
+        add_workstream_features('price_promo')
+    if config.get('has_stockout', False):
+        add_workstream_features('stockout')
+    if config.get('has_weather', False):
+        add_workstream_features('weather')
     
-    # Tạo một DataFrame mẫu để kiểm tra kiểu dữ liệu (để tìm categorical)
-    # Đây là một cách đơn giản, chúng ta sẽ cải thiện nó trong prepare_data
-    temp_numeric = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+    logger.info(f"Built feature list: {len(all_features)} total, {len(categorical_features)} categorical")
+    logger.info(f"Categorical features: {categorical_features}")
     
-    # Giả định: Bất kỳ feature nào KHÔNG phải là số đều là categorical
-    # Chúng ta sẽ làm sạch danh sách này trong prepare_data
-    
-    return all_features, all_categorical
+    return all_features, categorical_features
 
 
 def prepare_data(df: pd.DataFrame, config: Dict) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, List[str], List[str]]:
@@ -137,36 +139,66 @@ def prepare_data(df: pd.DataFrame, config: Dict) -> Tuple[pd.DataFrame, pd.DataF
     # Lọc: chỉ giữ lại các features có trong df
     all_features = [col for col in all_features_config if col in df.columns]
     
-    # Xác định chính xác categorical features
-    numeric_dtypes = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-    
-    categorical_features = []
-    for col in all_features:
-        if df_model[col].dtype.name not in numeric_dtypes:
-             categorical_features.append(col)
-             
-    # Thêm các cột số nhưng thực ra là categorical (ví dụ: hour_of_day)
-    manual_cats = ['hour_of_day', 'day_of_week', 'is_morning_peak', 'is_evening_peak', 
-                   'is_weekend', 'temp_category', 'is_rainy', 'rain_intensity', 
-                   'is_extreme_heat', 'is_extreme_cold', 'is_high_humidity',
-                   'is_on_display', 'is_on_mailer', 'is_on_retail_promo', 'is_on_coupon_promo']
-                   
-    for col in manual_cats:
-        if col in all_features and col not in categorical_features:
-            categorical_features.append(col)
+    # FIX Task 2.2 - Removed hardcoded manual_cats, now using config metadata
+    # Filter categorical features to only those present in df
+    categorical_features = [col for col in all_categorical_config if col in df.columns]
 
     logger.info(f"Found {len(all_features)} total features.")
-    logger.info(f"Found {len(categorical_features)} categorical features: {categorical_features}")
+    logger.info(f"Found {len(categorical_features)} categorical features (from config): {categorical_features}")
 
     X = df_model[all_features]
     y = df_model[target_col]
     
-    # CHỐT CHẶN CUỐI: Fill tất cả NaN còn sót lại
+    # FIX Task 2.3 - Intelligent Missing Value Handling
     # --------------------------------------------------
-    numeric_features = X.select_dtypes(include=[np.number]).columns
-    X[numeric_features] = X[numeric_features].fillna(0)
+    # Different strategies for different feature types:
+    # 1. Lag/rolling features: fillna(0) is appropriate (missing = no historical data)
+    # 2. Weather features: should NOT be 0 (already handled in WS6 with ffill/bfill/mean)
+    # 3. Price/promotion features: should NOT be 0 (0 price is invalid)
+    # --------------------------------------------------
     
-    logger.info(f"Final safeguard: Filled NaNs in {len(numeric_features)} numeric columns with 0.")
+    numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
+    
+    # Features safe to fill with 0 (lag, rolling, sales-related)
+    safe_to_zero = [
+        col for col in numeric_features
+        if any(keyword in col.lower() for keyword in ['lag', 'rolling', 'sales', 'quantity', 'frequency', 'duration'])
+    ]
+    
+    # Weather, price, promotion features - use forward/backward fill then mean
+    sensitive_features = [
+        col for col in numeric_features
+        if any(keyword in col.lower() for keyword in ['temperature', 'precipitation', 'humidity', 'weather', 'price', 'discount'])
+    ]
+    
+    # Other numeric features - use median
+    other_features = [col for col in numeric_features if col not in safe_to_zero and col not in sensitive_features]
+    
+    if safe_to_zero:
+        X[safe_to_zero] = X[safe_to_zero].fillna(0)
+        logger.info(f"Filled {len(safe_to_zero)} lag/rolling features with 0")
+    
+    if sensitive_features:
+        for col in sensitive_features:
+            if X[col].isnull().any():
+                # FIX [C1]: Replace deprecated fillna(method=) with .ffill()/.bfill() for pandas 2.x compatibility
+                # Forward fill -> backward fill -> mean
+                X[col] = X[col].ffill().bfill().fillna(X[col].mean())
+        logger.info(f"Filled {len(sensitive_features)} weather/price features with ffill/bfill/mean")
+    
+    if other_features:
+        for col in other_features:
+            if X[col].isnull().any():
+                X[col] = X[col].fillna(X[col].median())
+        logger.info(f"Filled {len(other_features)} other features with median")
+    
+    # Final check: any remaining NaNs fill with 0 (safety net)
+    remaining_nulls = X.isnull().sum().sum()
+    if remaining_nulls > 0:
+        logger.warning(f"Final safety net: Filling {remaining_nulls} remaining NaNs with 0")
+        X = X.fillna(0)
+    
+    logger.info("✅ Intelligent missing value handling complete")
     # --------------------------------------------------
     
     # Chuyển đổi categorical features sang 'category' dtype
@@ -535,6 +567,46 @@ def main(args) -> None:
     logger.info("STEP 2: PREPARE DATA & TIME-BASED SPLIT")
     X_train, X_test, y_train, y_test, features, cat_features = prepare_data(df, config)
 
+    # FIX Task 2.1 - Add Feature Selection (Step 2.5)
+    logger.info("=" * 70)
+    logger.info("STEP 2.5: FEATURE SELECTION")
+    logger.info("=" * 70)
+    
+    if args.skip_feature_selection:
+        logger.info("Feature selection SKIPPED (--skip-feature-selection flag)")
+        selected_features = features
+    else:
+        # Reconstruct full dataframe for feature selection
+        df_for_selection = pd.concat([X_train, X_test], axis=0)
+        target_col = config['target_column']
+        df_for_selection[target_col] = pd.concat([y_train, y_test], axis=0)
+        
+        # Run feature selection
+        selection_result = get_optimal_features(
+            df=df_for_selection,
+            target_col=target_col,
+            importance_threshold=0.005,  # Keep features with >0.5% importance
+            correlation_threshold=0.95,   # Remove highly correlated features
+            max_features=None,  # No hard limit
+            save_report=True
+        )
+        
+        selected_features = selection_result['selected_features']
+        logger.info(f"Feature Selection Results:")
+        logger.info(f"  Initial features: {selection_result['n_initial']}")
+        logger.info(f"  Selected features: {selection_result['n_selected']}")
+        logger.info(f"  Reduction: {(1 - selection_result['n_selected']/selection_result['n_initial'])*100:.1f}%")
+        
+        # Update X_train and X_test with selected features
+        X_train = X_train[selected_features]
+        X_test = X_test[selected_features]
+        
+        # Update categorical features list (only keep those in selected features)
+        cat_features = [f for f in cat_features if f in selected_features]
+        logger.info(f"  Categorical features after selection: {len(cat_features)}")
+    
+    logger.info("=" * 70)
+
     # 4. Train Models
     logger.info("STEP 3: TRAIN QUANTILE MODELS")
     model_types = args.model_types if args.model_types else TRAINING_CONFIG.get('model_types', ['lightgbm'])
@@ -550,12 +622,14 @@ def main(args) -> None:
 
     # 6. Save
     logger.info("STEP 5: SAVE ARTIFACTS")
+    # FIX Task 2.1 - Save selected features instead of all features
     final_features_config = {
-        "all_features": features,
+        "all_features": selected_features if not args.skip_feature_selection else features,
         "categorical_features": cat_features,
         "quantiles": TRAINING_CONFIG['quantiles'],
         "model_types": list(all_models.keys()),
-        "dataset_trained_on": config['name']
+        "dataset_trained_on": config['name'],
+        "feature_selection_enabled": not args.skip_feature_selection
     }
     save_artifacts(all_models, final_features_config, all_metrics)
 
@@ -569,6 +643,9 @@ if __name__ == "__main__":
     parser.add_argument('--tune', action='store_true', help='Enable hyperparameter tuning (nếu được implement)')
     parser.add_argument('--model-types', nargs='+', type=str, default=None,
                        help='Model types to train (lightgbm, catboost, random_forest)')
+    # FIX Task 2.1 - Add flag to skip feature selection if needed
+    parser.add_argument('--skip-feature-selection', action='store_true',
+                       help='Skip automatic feature selection and use all features')
     args = parser.parse_args()
     
     main(args)

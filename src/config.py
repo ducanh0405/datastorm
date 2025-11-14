@@ -109,49 +109,125 @@ def get_dataset_config(dataset_name=None):
         raise KeyError(f"Dataset '{dataset}' not found. Available: {list(DATASET_CONFIGS.keys())}")
     return DATASET_CONFIGS[dataset]
 
-# --- 4. FEATURE CONFIG (Modular) ---
-# Ánh xạ tên toggle trong config tới danh sách features
-# Điều này giúp _03_model_training.py tự động chọn features
+# --- 4. FEATURE CONFIG (Modular với Type Metadata) ---
+# FIX Task 2.2 - Refactored to include feature type metadata
+# Each feature now has 'name' and 'type' ('num' for numeric, 'cat' for categorical)
+# This enables automatic categorical feature detection in model training
 ALL_FEATURES_CONFIG = {
-    # WS1: Relational
-    'relational': ['DEPARTMENT', 'COMMODITY_DESC', 'BRAND', 'MANUFACTURER'],
-    
-    # WS2: Time-Series (Base)
-    'timeseries_base': [
-        'sales_lag_1', 'sales_lag_4', 'sales_lag_8', 'sales_lag_12', # (Dunnhumby)
-        'sales_quantity_lag_1', 'sales_quantity_lag_24', 'sales_quantity_lag_48', 'sales_quantity_lag_168', # (FreshRetail)
-        'rolling_mean_4_lag_1', 'rolling_std_4_lag_1',
-        'rolling_mean_8_lag_1', 'rolling_std_8_lag_1',
-        'rolling_mean_12_lag_1', 'rolling_std_12_lag_1',
-        'rolling_mean_24_lag_1', 'rolling_std_24_lag_1',
-        'rolling_mean_168_lag_1', 'rolling_std_168_lag_1',
-        'week_of_year', 'month_proxy', 'week_sin', 'week_cos', # (Calendar)
+    # WS1: Relational (all categorical)
+    'relational': [
+        {'name': 'DEPARTMENT', 'type': 'cat'},
+        {'name': 'COMMODITY_DESC', 'type': 'cat'},
+        {'name': 'BRAND', 'type': 'cat'},
+        {'name': 'MANUFACTURER', 'type': 'cat'},
     ],
     
-    # WS2: Intraday
+    # WS2: Time-Series (Base) - mostly numeric, some categorical
+    'timeseries_base': [
+        {'name': 'sales_lag_1', 'type': 'num'},
+        {'name': 'sales_lag_4', 'type': 'num'},
+        {'name': 'sales_lag_8', 'type': 'num'},
+        {'name': 'sales_lag_12', 'type': 'num'},
+        {'name': 'sales_quantity_lag_1', 'type': 'num'},
+        {'name': 'sales_quantity_lag_24', 'type': 'num'},
+        {'name': 'sales_quantity_lag_48', 'type': 'num'},
+        {'name': 'sales_quantity_lag_168', 'type': 'num'},
+        {'name': 'rolling_mean_4_lag_1', 'type': 'num'},
+        {'name': 'rolling_std_4_lag_1', 'type': 'num'},
+        {'name': 'rolling_mean_8_lag_1', 'type': 'num'},
+        {'name': 'rolling_std_8_lag_1', 'type': 'num'},
+        {'name': 'rolling_mean_12_lag_1', 'type': 'num'},
+        {'name': 'rolling_std_12_lag_1', 'type': 'num'},
+        {'name': 'rolling_mean_24_lag_1', 'type': 'num'},
+        {'name': 'rolling_std_24_lag_1', 'type': 'num'},
+        {'name': 'rolling_mean_168_lag_1', 'type': 'num'},
+        {'name': 'rolling_std_168_lag_1', 'type': 'num'},
+        {'name': 'week_of_year', 'type': 'cat'},  # Cyclical, treat as categorical
+        {'name': 'month_proxy', 'type': 'cat'},    # Cyclical, treat as categorical
+        {'name': 'week_sin', 'type': 'num'},
+        {'name': 'week_cos', 'type': 'num'},
+    ],
+    
+    # WS2: Intraday Patterns (mix of categorical and numeric)
     'intraday_patterns': [
-        'hour_of_day', 'day_of_week', 'is_morning_peak', 
-        'is_evening_peak', 'is_weekend', 'hour_sin', 'hour_cos', 'dow_sin', 'dow_cos'
+        {'name': 'hour_of_day', 'type': 'cat'},      # 0-23, categorical
+        {'name': 'day_of_week', 'type': 'cat'},      # 0-6, categorical
+        {'name': 'is_morning_peak', 'type': 'cat'},  # Binary flag
+        {'name': 'is_evening_peak', 'type': 'cat'},  # Binary flag
+        {'name': 'is_weekend', 'type': 'cat'},       # Binary flag
+        {'name': 'hour_sin', 'type': 'num'},
+        {'name': 'hour_cos', 'type': 'num'},
+        {'name': 'dow_sin', 'type': 'num'},
+        {'name': 'dow_cos', 'type': 'num'},
     ],
 
-    # WS3: Behavior
-    'behavior': ['total_views', 'total_addtocart', 'total_transactions', 
-                 'rate_view_to_cart', 'rate_cart_to_buy', 'rate_view_to_buy', 
-                 'days_since_last_action'],
+    # WS3: Behavior (all numeric)
+    'behavior': [
+        {'name': 'total_views', 'type': 'num'},
+        {'name': 'total_addtocart', 'type': 'num'},
+        {'name': 'total_transactions', 'type': 'num'},
+        {'name': 'rate_view_to_cart', 'type': 'num'},
+        {'name': 'rate_cart_to_buy', 'type': 'num'},
+        {'name': 'rate_view_to_buy', 'type': 'num'},
+        {'name': 'days_since_last_action', 'type': 'num'},
+    ],
     
-    # WS4: Price/Promo
-    'price_promo': ['base_price', 'total_discount', 'discount_pct', 
-                    'is_on_display', 'is_on_mailer', 'is_on_retail_promo', 'is_on_coupon_promo'],
+    # WS4: Price/Promo (mix)
+    'price_promo': [
+        {'name': 'base_price', 'type': 'num'},
+        {'name': 'total_discount', 'type': 'num'},
+        {'name': 'discount_pct', 'type': 'num'},
+        {'name': 'is_on_display', 'type': 'cat'},         # Binary flag
+        {'name': 'is_on_mailer', 'type': 'cat'},          # Binary flag
+        {'name': 'is_on_retail_promo', 'type': 'cat'},    # Binary flag
+        {'name': 'is_on_coupon_promo', 'type': 'cat'},    # Binary flag
+    ],
     
-    # WS5: Stockout
-    'stockout': ['latent_demand', 'stockout_duration', 'time_since_last_stockout', 
-                 'time_to_next_stockout', 'stockout_frequency', 'stockout_severity'],
+    # WS5: Stockout (all numeric)
+    'stockout': [
+        {'name': 'latent_demand', 'type': 'num'},
+        {'name': 'stockout_duration', 'type': 'num'},
+        {'name': 'time_since_last_stockout', 'type': 'num'},
+        {'name': 'time_to_next_stockout', 'type': 'num'},
+        {'name': 'stockout_frequency', 'type': 'num'},
+        {'name': 'stockout_severity', 'type': 'num'},
+    ],
     
-    # WS6: Weather
-    'weather': ['temperature', 'precipitation', 'humidity', 'temp_category', 
-                'is_rainy', 'rain_intensity', 'temp_lag_1d', 'temp_change_24h', 
-                'is_extreme_heat', 'is_extreme_cold', 'is_high_humidity']
+    # WS6: Weather (mix)
+    'weather': [
+        {'name': 'temperature', 'type': 'num'},
+        {'name': 'precipitation', 'type': 'num'},
+        {'name': 'humidity', 'type': 'num'},
+        {'name': 'temp_category', 'type': 'cat'},         # Low/Medium/High
+        {'name': 'is_rainy', 'type': 'cat'},              # Binary flag
+        {'name': 'rain_intensity', 'type': 'cat'},        # None/Light/Heavy
+        {'name': 'temp_lag_1d', 'type': 'num'},
+        {'name': 'temp_change_24h', 'type': 'num'},
+        {'name': 'is_extreme_heat', 'type': 'cat'},       # Binary flag
+        {'name': 'is_extreme_cold', 'type': 'cat'},       # Binary flag
+        {'name': 'is_high_humidity', 'type': 'cat'},      # Binary flag
+    ]
 }
+
+# FIX Task 2.2 - Helper function to extract features by type
+def get_features_by_type(feature_type: str = 'all') -> List[str]:
+    """
+    Extract feature names from ALL_FEATURES_CONFIG.
+    
+    Args:
+        feature_type: 'all', 'num' (numeric), or 'cat' (categorical)
+        
+    Returns:
+        List of feature names
+    """
+    features = []
+    for ws_features in ALL_FEATURES_CONFIG.values():
+        for feat in ws_features:
+            if feature_type == 'all':
+                features.append(feat['name'])
+            elif feat['type'] == feature_type:
+                features.append(feat['name'])
+    return features
 
 # --- 5. LOGGING CONFIG ---
 LOGGING_CONFIG = {

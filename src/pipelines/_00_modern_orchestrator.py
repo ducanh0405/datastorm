@@ -15,6 +15,7 @@ try:
     from prefect import flow, task  # pyright: ignore[reportMissingImports]
     from prefect.logging import get_run_logger  # pyright: ignore[reportMissingImports]
     from prefect.states import Failed, Completed  # pyright: ignore[reportMissingImports]
+    PREFECT_AVAILABLE = True
     # Try to import cache-related features (may vary by Prefect version)
     try:
         from prefect.tasks import task_input_hash  # pyright: ignore[reportMissingImports]
@@ -24,8 +25,22 @@ try:
         task_input_hash = None
         INPUTS = None
 except ImportError:
-    print("Prefect not installed. Install with: pip install prefect")
-    raise
+    PREFECT_AVAILABLE = False
+    import logging
+    _temp_logger = logging.getLogger(__name__)
+    _temp_logger.warning("Prefect not installed. Pipeline will run without orchestration features.")
+    _temp_logger.warning("Install with: pip install prefect")
+    # Create dummy decorators for graceful degradation
+    def flow(name=None):
+        def decorator(func):
+            return func
+        return decorator
+    def task(retries=0, retry_delay_seconds=0):
+        def decorator(func):
+            return func
+        return decorator
+    def get_run_logger():
+        return logging.getLogger(__name__)
 
 from src.config import (
     setup_project_path, setup_logging, ensure_directories,
@@ -37,6 +52,9 @@ from src.utils.validation import comprehensive_validation
 from src.utils.data_quality import DataQualityMonitor
 from src.utils.alerting import alert_manager
 from src.utils.caching import pipeline_cache
+# FIX Task 1.3 - Import monitoring & lineage tracking
+from src.utils.performance_monitor import performance_monitor
+from src.utils.data_lineage import lineage_tracker, DataArtifact, PipelineStep
 
 setup_project_path()
 setup_logging()
@@ -322,6 +340,10 @@ def modern_pipeline_flow(full_data: bool = False):
     """
     logger = get_run_logger()
 
+    # FIX Task 1.3 - Start monitoring at pipeline start
+    performance_monitor.start_monitoring()
+    logger.info("✅ Performance monitoring started")
+
     # Get configuration
     dataset_config = get_dataset_config()
     logger.info(f"🚀 Starting pipeline for dataset: {dataset_config['name']}")
@@ -329,6 +351,16 @@ def modern_pipeline_flow(full_data: bool = False):
 
     # Step 1: Load and validate data
     dataframes = load_and_validate_data(dataset_config)
+    
+    # FIX Task 1.3 - Track data loading in lineage
+    for name, df in dataframes.items():
+        artifact = DataArtifact(
+            name=name,
+            artifact_type='raw_data',
+            shape=df.shape,
+            created_at=datetime.now().isoformat()
+        )
+        lineage_tracker.register_artifact(artifact)
 
     # Step 2: Create master dataframe
     master_df = create_master_dataframe(dataframes, dataset_config)
@@ -341,6 +373,15 @@ def modern_pipeline_flow(full_data: bool = False):
 
     # Step 5: Generate quality report
     generate_quality_report()
+
+    # FIX Task 1.3 - Stop monitoring and save results
+    monitoring_summary = performance_monitor.stop_monitoring()
+    logger.info("✅ Performance monitoring stopped")
+    logger.info(f"📊 Session summary: {monitoring_summary.get('session_duration', 0):.2f}s total")
+    
+    # Save lineage data
+    lineage_tracker.save_lineage()
+    logger.info("✅ Data lineage saved")
 
     logger.info("🎉 Pipeline execution complete!")
 

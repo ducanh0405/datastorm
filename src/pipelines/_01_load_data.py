@@ -20,16 +20,39 @@ except ImportError:
     logger = logging.getLogger(__name__)
 
 def _load_file(data_dir: Path, file_stem: str) -> pd.DataFrame:
-    """Helper to load .parquet or .csv."""
+    """
+    Helper to load .parquet or .csv with error handling.
+    
+    FIX [H1]: Add file corruption and I/O error handling
+    """
     parquet_path = data_dir / f"{file_stem}.parquet"
     csv_path = data_dir / f"{file_stem}.csv"
     
     if parquet_path.exists():
         logger.info(f"  Loading {file_stem}.parquet...")
-        return pd.read_parquet(parquet_path)
-    elif csv_path.exists():
+        try:
+            df = pd.read_parquet(parquet_path)
+            # Validate file integrity - check if we got data
+            if df is None or len(df) == 0:
+                logger.warning(f"  {file_stem}.parquet is empty, trying CSV fallback...")
+                raise ValueError(f"Empty parquet file: {file_stem}")
+            return df
+        except Exception as e:
+            logger.error(f"  Failed to load {file_stem}.parquet: {e}")
+            logger.info(f"  Attempting CSV fallback...")
+            # Don't return None, try CSV fallback
+            
+    if csv_path.exists():
         logger.info(f"  Loading {file_stem}.csv...")
-        return pd.read_csv(csv_path)
+        try:
+            df = pd.read_csv(csv_path)
+            if df is None or len(df) == 0:
+                logger.error(f"  {file_stem}.csv is empty!")
+                return None
+            return df
+        except Exception as e:
+            logger.error(f"  Failed to load {file_stem}.csv: {e}")
+            return None
     else:
         logger.warning(f"  File not found: {file_stem}.parquet/csv")
         return None
@@ -37,6 +60,8 @@ def _load_file(data_dir: Path, file_stem: str) -> pd.DataFrame:
 def _sample_data_for_memory_optimization(dataframes: Dict[str, pd.DataFrame], config: Dict) -> Dict[str, pd.DataFrame]:
     """
     Sample data để giảm kích thước nếu cần thiết cho máy có RAM hạn chế.
+    
+    FIX [H3]: Add input validation for memory optimization parameters
     """
     from src.config import MEMORY_OPTIMIZATION
     
@@ -51,14 +76,27 @@ def _sample_data_for_memory_optimization(dataframes: Dict[str, pd.DataFrame], co
         df = dataframes['sales']
         original_size = len(df)
         
-        # Sample by fraction
+        # Sample by fraction with validation
         sample_fraction = MEMORY_OPTIMIZATION.get('sample_fraction', 0.1)
+        # FIX [H3]: Validate sample_fraction
+        if not isinstance(sample_fraction, (int, float)):
+            logger.error(f"Invalid sample_fraction type: {type(sample_fraction)}. Using default 0.1")
+            sample_fraction = 0.1
+        if sample_fraction <= 0 or sample_fraction > 1.0:
+            logger.error(f"Invalid sample_fraction value: {sample_fraction}. Must be 0 < fraction <= 1.0. Using default 0.1")
+            sample_fraction = 0.1
         if sample_fraction < 1.0:
             df = df.sample(frac=sample_fraction, random_state=42).reset_index(drop=True)
             logger.info(f"  Sampled {original_size:,} -> {len(df):,} rows ({sample_fraction*100:.1f}%)")
         
-        # Limit products
+        # Limit products with validation
         max_products = MEMORY_OPTIMIZATION.get('max_products')
+        # FIX [H3]: Validate max_products
+        if max_products is not None:
+            if not isinstance(max_products, int) or max_products <= 0:
+                logger.error(f"Invalid max_products: {max_products}. Ignoring.")
+                max_products = None
+        
         if max_products and 'product_id' in df.columns:
             unique_products = df['product_id'].unique()[:max_products]
             df = df[df['product_id'].isin(unique_products)]
@@ -218,10 +256,12 @@ def _load_dunnhumby_data(data_dir: Path) -> Dict[str, pd.DataFrame]:
         
     return dataframes
 
-def load_data() -> (Dict[str, pd.DataFrame], Dict):
+def load_data() -> tuple[Dict[str, pd.DataFrame], Dict]:
     """
     Loads data based on the ACTIVE_DATASET in config.
     Returns the dictionary of dataframes and the config.
+    
+    FIX: Corrected type hint syntax for Python 3.10+
     """
     config = get_dataset_config()
     data_dir = get_data_directory()
