@@ -107,6 +107,11 @@ def load_and_validate_data_task(dataset_config: Dict[str, Any]) -> Dict[str, pd.
         
         # Validate each dataframe
         for name, df in dataframes.items():
+            # Skip None dataframes (optional data that wasn't found)
+            if df is None:
+                logger.info(f"\nSkipping {name}: not available (optional data)")
+                continue
+                
             logger.info(f"\nValidating {name}: {df.shape}")
             
             # Run GX validation
@@ -165,11 +170,13 @@ def create_master_dataframe_task(
     start_time = time.time()
     
     try:
-        # Get training data
-        if 'freshretail_train' in dataframes:
+        # Get training data - use 'sales' key (standardized across datasets)
+        if 'sales' in dataframes and dataframes['sales'] is not None:
+            df = dataframes['sales']
+        elif 'freshretail_train' in dataframes:
             df = dataframes['freshretail_train']
         else:
-            raise ValueError("No training data found")
+            raise ValueError("No training data found. Expected 'sales' or 'freshretail_train' key.")
         
         logger.info(f"Processing {len(df):,} rows...")
         
@@ -210,46 +217,84 @@ def enrich_features_task(
     start_time = time.time()
     enriched_df = master_df.copy()
     
+    # Get dataframes for feature enrichment (needed for some workstreams)
+    from src.pipelines._01_load_data import load_data
+    dataframes, _ = load_data()
+    
     try:
-        # Import feature modules
-        feature_modules = []
-        
+        # WS1: Relational Features
         if dataset_config.get('has_relational', True):
-            from src.features import ws1_relational_features as ws1
-            feature_modules.append(('WS1-Relational', ws1))
-        
-        from src.features import ws2_timeseries_features as ws2
-        feature_modules.append(('WS2-TimeSeries', ws2))
-        
-        if dataset_config.get('has_behavior', False):
-            from src.features import ws3_behavior_features as ws3
-            feature_modules.append(('WS3-Behavior', ws3))
-        
-        if dataset_config.get('has_price_promo', False):
-            from src.features import ws4_price_features as ws4
-            feature_modules.append(('WS4-Price', ws4))
-        
-        if dataset_config.get('has_stockout', True):
-            from src.features import ws5_stockout_recovery as ws5
-            feature_modules.append(('WS5-Stockout', ws5))
-        
-        if dataset_config.get('has_weather', True):
-            from src.features import ws6_weather_features as ws6
-            feature_modules.append(('WS6-Weather', ws6))
-        
-        # Apply features
-        logger.info(f"Applying {len(feature_modules)} feature workstreams...\n")
-        
-        for ws_name, module in feature_modules:
             ws_start = time.time()
-            logger.info(f"  Processing {ws_name}...")
-            
+            logger.info("  Processing WS1-Relational...")
             try:
-                enriched_df = module.main(enriched_df, dataset_config)
+                from src.features import ws1_relational_features as ws1
+                enriched_df = ws1.enrich_relational_features(enriched_df, dataframes)
                 ws_elapsed = time.time() - ws_start
-                logger.info(f"    ✅ {ws_name} complete in {ws_elapsed:.1f}s")
+                logger.info(f"    ✅ WS1-Relational complete in {ws_elapsed:.1f}s")
             except Exception as e:
-                logger.warning(f"    ⚠️ {ws_name} failed: {e}")
+                logger.warning(f"    ⚠️ WS1-Relational failed: {e}")
+        
+        # WS5: Stockout Recovery (run before WS2)
+        if dataset_config.get('has_stockout', True):
+            ws_start = time.time()
+            logger.info("  Processing WS5-Stockout...")
+            try:
+                from src.features import ws5_stockout_recovery as ws5
+                enriched_df = ws5.recover_latent_demand(enriched_df, dataset_config)
+                enriched_df = ws5.add_stockout_features(enriched_df, dataset_config)
+                ws_elapsed = time.time() - ws_start
+                logger.info(f"    ✅ WS5-Stockout complete in {ws_elapsed:.1f}s")
+            except Exception as e:
+                logger.warning(f"    ⚠️ WS5-Stockout failed: {e}")
+        
+        # WS6: Weather Features
+        if dataset_config.get('has_weather', True) and 'weather' in dataframes and dataframes['weather'] is not None:
+            ws_start = time.time()
+            logger.info("  Processing WS6-Weather...")
+            try:
+                from src.features import ws6_weather_features as ws6
+                enriched_df = ws6.merge_weather_data(enriched_df, dataframes['weather'])
+                enriched_df = ws6.create_weather_features(enriched_df)
+                ws_elapsed = time.time() - ws_start
+                logger.info(f"    ✅ WS6-Weather complete in {ws_elapsed:.1f}s")
+            except Exception as e:
+                logger.warning(f"    ⚠️ WS6-Weather failed: {e}")
+        
+        # WS2: Time-Series Features (always run)
+        ws_start = time.time()
+        logger.info("  Processing WS2-TimeSeries...")
+        try:
+            from src.features import ws2_timeseries_features as ws2
+            enriched_df = ws2.add_timeseries_features_config(enriched_df, dataset_config)
+            ws_elapsed = time.time() - ws_start
+            logger.info(f"    ✅ WS2-TimeSeries complete in {ws_elapsed:.1f}s")
+        except Exception as e:
+            logger.error(f"    ❌ WS2-TimeSeries failed: {e}")
+            raise  # WS2 is critical
+        
+        # WS3: Behavior Features
+        if dataset_config.get('has_behavior', False):
+            ws_start = time.time()
+            logger.info("  Processing WS3-Behavior...")
+            try:
+                from src.features import ws3_behavior_features as ws3
+                enriched_df = ws3.add_behavioral_features(enriched_df, dataframes)
+                ws_elapsed = time.time() - ws_start
+                logger.info(f"    ✅ WS3-Behavior complete in {ws_elapsed:.1f}s")
+            except Exception as e:
+                logger.warning(f"    ⚠️ WS3-Behavior failed: {e}")
+        
+        # WS4: Price/Promo Features
+        if dataset_config.get('has_price_promo', False):
+            ws_start = time.time()
+            logger.info("  Processing WS4-Price...")
+            try:
+                from src.features import ws4_price_features as ws4
+                enriched_df = ws4.add_price_promotion_features(enriched_df, dataframes)
+                ws_elapsed = time.time() - ws_start
+                logger.info(f"    ✅ WS4-Price complete in {ws_elapsed:.1f}s")
+            except Exception as e:
+                logger.warning(f"    ⚠️ WS4-Price failed: {e}")
         
         # CRITICAL: Validate enriched features with GX
         logger.info("\n" + "=" * 70)
@@ -280,10 +325,12 @@ def enrich_features_task(
             logger.error("❌ Quality: POOR")
             # Alert
             if alert_manager and DATA_QUALITY_CONFIG['alerting']['alert_on_quality_below'] > quality_score:
+                failed_expectations = validation_result.get('failed_expectations', [])
+                issues = [f.get('expectation', 'Unknown issue') for f in failed_expectations[:5]]
                 alert_manager.alert_data_quality_issue(
-                    data_asset="enriched_features",
+                    dataset_name="enriched_features",
                     quality_score=quality_score,
-                    threshold=DATA_QUALITY_CONFIG['alerting']['alert_on_quality_below']
+                    issues=issues
                 )
         
         # Show failed expectations (if any)

@@ -1,22 +1,109 @@
 {
-    "base_value": 0.0,
+    "base_value": 0.9290703702586852,
     "feature_names": [
         "sales_quantity_lag_1",
         "sales_quantity_lag_24",
-        "sales_quantity_lag_48",
-        "sales_quantity_lag_168",
-        "hour_of_day",
-        "day_of_week",
-        "is_morning_peak",
-        "is_evening_peak",
-        "is_weekend",
-        "hour_sin",
-        "hour_cos",
         "dow_sin",
+        "rolling_mean_24_lag_1",
+        "sales_quantity_lag_48",
+        "rolling_std_24_lag_1",
+        "rolling_std_168_lag_1",
         "dow_cos",
-        "latent_demand"
+        "rolling_mean_168_lag_1"
     ],
     "model_type": "lightgbm",
     "quantile": 0.5,
-    "sample_size": 1000
+    "sample_size": 2000,
+    "top_features": [
+        {
+            "feature": "rolling_mean_24_lag_1",
+            "mean_abs_shap": 0.38432844561819135,
+            "mean_shap": 0.10308925077737373,
+            "std_shap": 0.6699134303107113,
+            "min_shap": -0.4646258981194865,
+            "max_shap": 7.361912510101712,
+            "positive_impact_pct": 37.4,
+            "negative_impact_pct": 62.6
+        },
+        {
+            "feature": "sales_quantity_lag_1",
+            "mean_abs_shap": 0.17630031604658988,
+            "mean_shap": 0.0200134652974374,
+            "std_shap": 0.6720294513419862,
+            "min_shap": -0.542636093126233,
+            "max_shap": 13.552378621493537,
+            "positive_impact_pct": 29.349999999999998,
+            "negative_impact_pct": 70.65
+        },
+        {
+            "feature": "dow_sin",
+            "mean_abs_shap": 0.10339792397627927,
+            "mean_shap": 0.0108018119013833,
+            "std_shap": 0.13906264814855163,
+            "min_shap": -0.8207461854353373,
+            "max_shap": 1.3122724964153385,
+            "positive_impact_pct": 34.4,
+            "negative_impact_pct": 65.60000000000001
+        },
+        {
+            "feature": "rolling_mean_168_lag_1",
+            "mean_abs_shap": 0.0928154445427344,
+            "mean_shap": 0.013981564555881553,
+            "std_shap": 0.1911974528700769,
+            "min_shap": -0.12839010779483206,
+            "max_shap": 2.643571078411917,
+            "positive_impact_pct": 30.2,
+            "negative_impact_pct": 69.8
+        },
+        {
+            "feature": "sales_quantity_lag_24",
+            "mean_abs_shap": 0.02003892025480982,
+            "mean_shap": -0.003562289437183635,
+            "std_shap": 0.1041378841737015,
+            "min_shap": -0.34148606460022013,
+            "max_shap": 3.2406276577894637,
+            "positive_impact_pct": 40.2,
+            "negative_impact_pct": 59.8
+        },
+        {
+            "feature": "rolling_std_168_lag_1",
+            "mean_abs_shap": 0.019082844026310834,
+            "mean_shap": -0.006073829380198448,
+            "std_shap": 0.0398056604833799,
+            "min_shap": -0.24479533505537168,
+            "max_shap": 0.8465382789461816,
+            "positive_impact_pct": 51.5,
+            "negative_impact_pct": 48.5
+        },
+        {
+            "feature": "dow_cos",
+            "mean_abs_shap": 0.016120474295270026,
+            "mean_shap": 0.001341661500073635,
+            "std_shap": 0.02841174692539442,
+            "min_shap": -0.3886269972674713,
+            "max_shap": 0.2658265899662991,
+            "positive_impact_pct": 51.949999999999996,
+            "negative_impact_pct": 48.05
+        },
+        {
+            "feature": "rolling_std_24_lag_1",
+            "mean_abs_shap": 0.015699088347592365,
+            "mean_shap": 0.003983101958195794,
+            "std_shap": 0.04236693584063381,
+            "min_shap": -0.3476789694304181,
+            "max_shap": 0.7668061084552011,
+            "positive_impact_pct": 43.65,
+            "negative_impact_pct": 56.35
+        },
+        {
+            "feature": "sales_quantity_lag_48",
+            "mean_abs_shap": 0.00913431726287166,
+            "mean_shap": -0.0024611098881521043,
+            "std_shap": 0.039295600473383235,
+            "min_shap": -1.1708681217963868,
+            "max_shap": 0.10630519287746634,
+            "positive_impact_pct": 51.800000000000004,
+            "negative_impact_pct": 48.199999999999996
+        }
+    ]
 }

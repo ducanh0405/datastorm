@@ -54,9 +54,11 @@ great-expectations==0.18.19
 evidently==0.4.37
 
 # Data quality and monitoring
-pandera==0.20.4
-data-profiler==0.10.7
-ydata-profiling==4.12.0
+# Note: Currently using great-expectations and evidently for data quality
+# The following packages are optional and not currently used in the codebase:
+# pandera==0.20.4  # Optional: Schema validation (not currently used)
+# ydata-profiling==4.12.0  # Optional: Data profiling (not currently used)
+# data-profiler==0.10.7  # REMOVED: Version doesn't exist, not compatible with Python 3.13, and not used
 
 # Caching and performance
 diskcache==5.6.3

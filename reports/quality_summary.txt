@@ -1,0 +1,7 @@
+SmartGrocy Data Quality Report
+======================================================================
+Generated: 2025-11-16 00:34:54
+
+GX Data Docs: D:\datastorm\E-Grocery_Forecaster\great_expectations\uncommitted\data_docs\local_site\index.html
+
+Validation Status: See GX reports for details

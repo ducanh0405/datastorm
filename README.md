@@ -116,15 +116,46 @@ python scripts/setup_great_expectations.py
 
 ### 2. Run Complete Pipeline
 
+#### Option A: Main Entry Point (Recommended)
+```bash
+# Run full pipeline
+python main.py pipeline --full-data
+
+# Run with 10% sample
+python main.py pipeline --full-data --sample 0.1
+
+# Run business modules
+python main.py business
+
+# Run tests
+python main.py test
+```
+
+#### Option B: Direct Pipeline Runner
 ```bash
 # Full pipeline with data quality monitoring
-python run_modern_pipeline_v2.py --full-data --use-v2
+python run_pipeline.py --full-data --use-v2
 
 # Quick test (10% sample)
-python run_modern_pipeline_v2.py --full-data --sample 0.1 --use-v2
+python run_pipeline.py --full-data --sample 0.1
 
-# Baseline pipeline
-python run_modern_pipeline.py --full-data
+# Standard pipeline
+python run_pipeline.py --full-data
+```
+
+#### Option C: Individual Stages
+```bash
+# Stage 1: Feature Engineering
+python src\pipelines\_02_feature_enrichment.py --full-data
+
+# Stage 2: Model Training
+python src\pipelines\_03_model_training.py
+
+# Stage 3: Prediction
+python src\pipelines\_05_prediction.py
+
+# Stage 4: Business Modules
+python run_business_modules.py
 ```
 
 ### 3. Run Individual Modules

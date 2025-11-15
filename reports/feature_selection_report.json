@@ -1,0 +1,18 @@
+{
+  "selected_features": [
+    "sales_quantity_lag_1",
+    "sales_quantity_lag_24",
+    "dow_sin",
+    "rolling_mean_24_lag_1",
+    "sales_quantity_lag_48",
+    "rolling_std_24_lag_1",
+    "rolling_std_168_lag_1",
+    "dow_cos",
+    "rolling_mean_168_lag_1"
+  ],
+  "n_selected": 9,
+  "n_initial": 13,
+  "importance_threshold": 0.005,
+  "correlation_threshold": 0.95,
+  "selection_method": "importance_correlation"
+}

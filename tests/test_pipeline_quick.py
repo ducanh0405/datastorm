@@ -6,9 +6,9 @@ import sys
 from pathlib import Path
 
 # Setup path
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 print("[TEST] Testing Pipeline Components...")
 
@@ -33,7 +33,11 @@ try:
 
     # Test sample data creation
     print("[PROCESS] Testing sample data processing...")
-    if 'freshretail_train' in dataframes:
+    if 'sales' in dataframes and dataframes['sales'] is not None:
+        df = dataframes['sales']
+        master_df = prepare_master_dataframe(df.head(1000))  # Small sample
+        print(f"[OK] Master dataframe created: {master_df.shape}")
+    elif 'freshretail_train' in dataframes:
         df = dataframes['freshretail_train']
         master_df = prepare_master_dataframe(df.head(1000))  # Small sample
         print(f"[OK] Master dataframe created: {master_df.shape}")
@@ -44,4 +48,7 @@ try:
 except Exception as e:
     print(f"\n[ERROR] {e}")
     print("Please check your setup and try again.")
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
+
