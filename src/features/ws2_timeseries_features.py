@@ -334,7 +334,9 @@ def create_rolling_features(
     df: pd.DataFrame,
     target_col: str = 'SALES_VALUE',
     base_lag: int = 1,
-    windows: list[int] | None = None
+    windows: list[int] | None = None,
+    groupby_cols: list[str] | None = None,
+    time_col: str | None = None
 ) -> pd.DataFrame:
     """
     Creates rolling statistics on LAGGED data (leak-safe, OPTIMIZED).
@@ -345,10 +347,12 @@ def create_rolling_features(
     OPTIMIZATION: Uses pandas native rolling with groupby (10x faster than transform).
 
     Args:
-        df: DataFrame sorted by [PRODUCT_ID, STORE_ID, WEEK_NO]
+        df: DataFrame sorted by groupby columns and time column
         target_col: Column to calculate rolling stats on
         base_lag: Base lag to apply before rolling (default: 1)
         windows: List of window sizes (default: [4, 8, 12] weeks)
+        groupby_cols: Columns to group by (default: auto-detect ['PRODUCT_ID', 'STORE_ID'] or ['product_id', 'store_id'])
+        time_col: Time column for sorting (default: auto-detect)
 
     Returns:
         DataFrame with new rolling features
@@ -364,8 +368,30 @@ def create_rolling_features(
 
     df_out = df.copy()
 
+    # Auto-detect groupby columns if not provided
+    if groupby_cols is None:
+        # Try lowercase first (FreshRetail), then uppercase (Dunnhumby)
+        if 'product_id' in df_out.columns and 'store_id' in df_out.columns:
+            groupby_cols = ['product_id', 'store_id']
+        elif 'PRODUCT_ID' in df_out.columns and 'STORE_ID' in df_out.columns:
+            groupby_cols = ['PRODUCT_ID', 'STORE_ID']
+        else:
+            logger.warning("SKIP: Cannot auto-detect groupby columns for rolling features")
+            return df_out
+    
+    # Auto-detect time column if not provided
+    if time_col is None:
+        for col in ['hour_timestamp', 'WEEK_NO', 'week_no', 'time', 'TIME']:
+            if col in df_out.columns:
+                time_col = col
+                break
+        if time_col is None:
+            logger.warning("SKIP: Cannot auto-detect time column for rolling features")
+            return df_out
+
     # Ensure proper sorting
-    df_out = df_out.sort_values(['PRODUCT_ID', 'STORE_ID', 'WEEK_NO']).reset_index(drop=True)
+    sort_cols = groupby_cols + [time_col]
+    df_out = df_out.sort_values(sort_cols).reset_index(drop=True)
 
     # Create base lag if not exists
     lag_col = f'{target_col.lower()}_lag_{base_lag}'
@@ -374,7 +400,7 @@ def create_rolling_features(
 
     # OPTIMIZED: Use groupby + rolling (much faster than transform approach)
     # Create group ID for efficient rolling operations
-    df_out['_group_id'] = df_out.groupby(['PRODUCT_ID', 'STORE_ID']).ngroup()
+    df_out['_group_id'] = df_out.groupby(groupby_cols).ngroup()
 
     for window in windows:
         logger.info(f"  Processing window size {window}...")
@@ -590,7 +616,37 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
         # Step 1: Create lag features using config
         master_df = create_lag_features_config(master_df, config)
 
-        # Step 2: Add intraday features if applicable
+        # Step 2: Create rolling features on lagged data (if rolling_windows configured)
+        rolling_windows = config.get('rolling_windows', [])
+        if rolling_windows:
+            # Determine target column
+            if config['temporal_unit'] == 'hour':
+                target_col = 'sales_quantity' if 'sales_quantity' in master_df.columns else 'SALES_VALUE'
+            else:
+                target_col = 'SALES_VALUE'
+            
+            if target_col in master_df.columns:
+                # Create base lag if not exists (use first lag period)
+                base_lag = config['lag_periods'][0] if config['lag_periods'] else 1
+                lag_col = f'{target_col.lower()}_lag_{base_lag}'
+                
+                # Create rolling features on lagged data
+                groupby_cols = config['groupby_keys'][:2]  # product_id, store_id
+                time_col = config['time_column']
+                master_df = create_rolling_features(
+                    master_df,
+                    target_col=target_col,
+                    base_lag=base_lag,
+                    windows=rolling_windows,
+                    groupby_cols=groupby_cols,
+                    time_col=time_col
+                )
+                logger.info(f"WS2-Config: Created rolling features with windows: {rolling_windows}")
+
+        # Step 3: Create calendar features
+        master_df = create_calendar_features(master_df)
+
+        # Step 4: Add intraday features if applicable
         if config.get('has_intraday_patterns', False):
             master_df = create_intraday_features(master_df, config['time_column'])
 

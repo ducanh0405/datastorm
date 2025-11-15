@@ -34,23 +34,15 @@ class TestCatBoostHandling:
     
     def test_catboost_model_creation_without_import(self):
         """Test that model creation fails gracefully when CatBoost unavailable."""
-        from src.pipelines._03_model_training import create_model
-        import logging
+        from src.pipelines._03_model_training import create_model, CATBOOST_AVAILABLE
         
-        # Mock logger to capture errors
-        logger = logging.getLogger('src.pipelines._03_model_training')
+        # If CatBoost is available, skip this test (it's testing unavailable scenario)
+        if CATBOOST_AVAILABLE:
+            pytest.skip("CatBoost is available - cannot test unavailable scenario")
         
         # Try to create CatBoost model - should raise ImportError if not available
         with pytest.raises((ImportError, RuntimeError)):
-            # This will fail if CatBoost is not available, which is expected
-            try:
-                model, _ = create_model('catboost', 0.5, [])
-            except ImportError:
-                # Expected if CatBoost not available
-                pass
-            except RuntimeError:
-                # Also acceptable - means it tried and failed gracefully
-                pass
+            model, _ = create_model('catboost', 0.5, [])
 
 
 class TestGreatExpectationsHandling:

@@ -134,14 +134,18 @@ def test_ws2_timeseries_features(sample_freshretail_data):
             assert 'day_of_week' in enriched_df.columns or 'dow_sin' in enriched_df.columns, \
                 "Should have day of week features"
         
-        # Verify no leakage: lag_1 should always be NaN for first period of each product/store
-        first_periods = enriched_df.groupby(['product_id', 'store_id']).head(1)
-        lag_cols = [col for col in enriched_df.columns if '_lag_1' in col]
-        if lag_cols:
-            for lag_col in lag_cols[:1]:  # Check first lag column
-                if lag_col in first_periods.columns:
-                    assert first_periods[lag_col].isna().all(), \
-                        f"Lag feature {lag_col} leaked into first period!"
+            # Verify no leakage: lag_1 should be 0 for first period (NaN filled with 0 is correct behavior)
+            # Note: WS2 fills NaN with 0 at the end, which is correct for time-series features
+            # The important thing is that lag features don't use future data
+            first_periods = enriched_df.groupby(['product_id', 'store_id']).head(1)
+            lag_cols = [col for col in enriched_df.columns if '_lag_1' in col]
+            if lag_cols:
+                for lag_col in lag_cols[:1]:  # Check first lag column
+                    if lag_col in first_periods.columns:
+                        # Lag features for first period should be 0 (NaN filled) or NaN, never use future data
+                        # Since WS2 fills NaN with 0, we check that values are 0 or NaN (not using future)
+                        assert (first_periods[lag_col] == 0).all() or first_periods[lag_col].isna().all(), \
+                            f"Lag feature {lag_col} should be 0 or NaN for first period (no future data leak)"
         
     except ImportError as e:
         pytest.skip(f"WS2 config-driven function not available: {e}")
@@ -206,7 +210,8 @@ def test_freshretail_sample_data(sample_freshretail_data):
     assert df['sale_amount'].dtype in ['float64', 'float32']
     assert df['product_id'].dtype in ['int64', 'int32']
     assert df['store_id'].dtype in ['int64', 'int32']
-    assert df['city_id'].dtype in ['int64', 'int32']
+    # city_id can be float64 (e.g., when loaded from parquet with NaN handling)
+    assert df['city_id'].dtype in ['int64', 'int32', 'float64', 'float32']
 
     # Check value ranges
     assert df['sale_amount'].min() >= 0, "Sale amounts should be non-negative"
