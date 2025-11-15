@@ -215,10 +215,15 @@ Examples:
         from src.pipelines._00_modern_orchestrator import modern_pipeline_flow
         pipeline_func = modern_pipeline_flow
     
-    # Prefect server mode
+    # Prefect server mode (OPTIONAL - requires Prefect server to be running)
     if args.prefect_server:
         logger.info("⚙️ Prefect server mode enabled")
-        logger.warning("   Make sure Prefect server is running: prefect server start")
+        logger.info("   NOTE: Prefect server is optional. For local development, you can skip this.")
+        logger.info("   To use Prefect server:")
+        logger.info("   1. Start Prefect server: prefect server start")
+        logger.info("   2. Open Prefect UI: http://localhost:4200")
+        logger.info("   3. Run pipeline with --prefect-server flag")
+        logger.warning("   If Prefect server is not running, pipeline will use local execution.")
     
     logger.info("="*70)
     

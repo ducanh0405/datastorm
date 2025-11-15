@@ -34,10 +34,7 @@ try:
     # 3. Import validation
     from src.utils.validation import comprehensive_validation
     
-    # FIX Task 1.2 - Removed unused import after removing nested parallelism
-    # from src.utils.parallel_processing import parallel_groupby_apply
-    
-    # FIX Task 1.3 - Import performance monitoring
+    # 4. Import performance monitoring for stage-level timing
     from src.utils.performance_monitor import performance_monitor
 
 except ImportError as e:
@@ -94,8 +91,7 @@ def main() -> None:
     logger.info("--- (4/8) Workstream 5: Stockout Recovery ---")
     if config['has_stockout']:
         try:
-            # FIX Task 1.2 - Removed nested parallelism
-            # WS5 functions already handle grouping internally, no need for parallel_groupby_apply wrapper
+            # WS5 functions handle grouping internally
             logger.info("Running WS5 (Latent Demand)...")
             master_df = ws5.recover_latent_demand(master_df, config)
             
@@ -113,7 +109,7 @@ def main() -> None:
     if config['has_weather']:
         if 'weather' in dataframes and dataframes['weather'] is not None:
             try:
-                # FIX Task 1.3 - Monitor WS6 performance
+                # Monitor WS6 performance (optional workstream)
                 with performance_monitor.time_operation('WS6_weather_features', {'has_weather': True}):
                     master_df = ws6.merge_weather_data(master_df, dataframes['weather'])
                     master_df = ws6.create_weather_features(master_df)
@@ -128,7 +124,7 @@ def main() -> None:
     # 6. WS2: Time-Series (Luôn chạy, hàm bên trong đã config-driven)
     logger.info("--- (6/8) Workstream 2: Time-Series Features ---")
     try:
-        # FIX Task 1.3 - Monitor WS2 performance (typically the slowest workstream)
+        # Monitor WS2 performance (typically the slowest workstream)
         with performance_monitor.time_operation('WS2_timeseries_features', {
             'lag_periods': config.get('lag_periods', []),
             'rolling_windows': config.get('rolling_windows', [])

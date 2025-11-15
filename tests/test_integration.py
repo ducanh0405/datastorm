@@ -19,16 +19,38 @@ from src.features.ws0_aggregation import prepare_master_dataframe
 @pytest.fixture
 def sample_data_dir():
     """Sample data directory for integration tests."""
-    return PROJECT_ROOT / 'data' / 'poc_data'
+    # Try poc_data first, fallback to 2_raw if poc_data doesn't have sample data
+    poc_data_dir = PROJECT_ROOT / 'data' / 'poc_data'
+    raw_data_dir = PROJECT_ROOT / 'data' / '2_raw'
+    
+    # Check if poc_data has sample files, otherwise use 2_raw
+    if poc_data_dir.exists() and list(poc_data_dir.glob('*.csv')):
+        return poc_data_dir
+    elif raw_data_dir.exists():
+        return raw_data_dir
+    else:
+        return poc_data_dir  # Default fallback
 
 
 @pytest.fixture
 def sample_freshretail_data(sample_data_dir):
     """Load sample FreshRetail data."""
-    data_path = sample_data_dir / 'freshretail_train_sample.csv'
-    if not data_path.exists():
-        pytest.skip("Sample data not found. Run scripts/create_freshretail_sample.py first.")
-    return pd.read_csv(data_path)
+    # Try multiple possible file names
+    possible_files = [
+        'freshretail_train_sample.csv',
+        'freshretail_train.csv',
+        'freshretail_train.parquet'
+    ]
+    
+    for filename in possible_files:
+        data_path = sample_data_dir / filename
+        if data_path.exists():
+            if filename.endswith('.parquet'):
+                return pd.read_parquet(data_path)
+            else:
+                return pd.read_csv(data_path)
+    
+    pytest.skip(f"Sample data not found in {sample_data_dir}. Expected one of: {possible_files}")
 
 
 class TestDataPipelineIntegration:

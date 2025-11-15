@@ -2,7 +2,7 @@
 Smoke Tests for DataStorm Pipeline
 ===================================
 Quick validation tests to ensure pipeline runs end-to-end without errors.
-Uses sample data from data/poc_data/ for fast execution.
+Uses sample data from data/poc_data/ or data/2_raw/ for fast execution.
 """
 import sys
 from pathlib import Path
@@ -22,16 +22,38 @@ from src.pipelines._01_load_data import load_data  # noqa: E402
 @pytest.fixture
 def sample_data_dir():
     """Sample data directory for smoke tests."""
-    return PROJECT_ROOT / 'data' / 'poc_data'
+    # Try poc_data first, fallback to 2_raw if poc_data doesn't have sample data
+    poc_data_dir = PROJECT_ROOT / 'data' / 'poc_data'
+    raw_data_dir = PROJECT_ROOT / 'data' / '2_raw'
+    
+    # Check if poc_data has sample files, otherwise use 2_raw
+    if poc_data_dir.exists() and list(poc_data_dir.glob('*.csv')):
+        return poc_data_dir
+    elif raw_data_dir.exists():
+        return raw_data_dir
+    else:
+        return poc_data_dir  # Default fallback
 
 
 @pytest.fixture
 def sample_freshretail_data(sample_data_dir):
     """Load sample FreshRetail data."""
-    data_path = sample_data_dir / 'freshretail_train_sample.csv'
-    if not data_path.exists():
-        pytest.skip("Sample data not found. Run scripts/create_freshretail_sample.py first.")
-    return pd.read_csv(data_path)
+    # Try multiple possible file names
+    possible_files = [
+        'freshretail_train_sample.csv',
+        'freshretail_train.csv',
+        'freshretail_train.parquet'
+    ]
+    
+    for filename in possible_files:
+        data_path = sample_data_dir / filename
+        if data_path.exists():
+            if filename.endswith('.parquet'):
+                return pd.read_parquet(data_path)
+            else:
+                return pd.read_csv(data_path)
+    
+    pytest.skip(f"Sample data not found in {sample_data_dir}. Expected one of: {possible_files}")
 
 
 @pytest.mark.smoke
@@ -74,31 +96,57 @@ def test_ws0_aggregation(sample_freshretail_data):
 
 @pytest.mark.smoke
 def test_ws2_timeseries_features(sample_freshretail_data):
-    """Test WS2: Leak-Safe Time-Series Features for FreshRetail."""
+    """Test WS2: Leak-Safe Time-Series Features for FreshRetail (Config-Driven)."""
+    from src.config import get_dataset_config
+    
     # First run WS0
     master_df = prepare_master_dataframe(sample_freshretail_data)
-
-    # For now, skip WS2 as it needs config-driven updates
-    # TODO: Update WS2 to be fully config-driven
-    pytest.skip("WS2 needs config-driven updates for FreshRetail support")
-
-    # Then run WS2
-    # enriched_df = add_lag_rolling_features(master_df)
-
-    # Verify lag features exist (FreshRetail naming)
-    # assert 'sales_quantity_lag_1' in enriched_df.columns
-    # assert 'sales_quantity_lag_24' in enriched_df.columns  # FreshRetail uses 24h lags
-
-    # Verify rolling features exist
-    # assert 'rolling_mean_24_lag_1' in enriched_df.columns
-
-    # Verify calendar features
-    # assert 'hour_of_day' in enriched_df.columns  # FreshRetail has intraday patterns
-    # assert 'day_of_week' in enriched_df.columns
-
-    # Verify no leakage: lag_1 should always be NaN for first period of each product/store
-    # first_periods = enriched_df.groupby(['product_id', 'store_id']).head(1)
-    # assert first_periods['sales_quantity_lag_1'].isna().all(), "Lag features leaked into first period!"
+    
+    # Get dataset config to verify WS2 is config-driven
+    try:
+        config = get_dataset_config('freshretail')
+        assert 'lag_periods' in config, "WS2 should be config-driven with lag_periods"
+        assert 'rolling_windows' in config, "WS2 should be config-driven with rolling_windows"
+    except (KeyError, ImportError):
+        pytest.skip("Dataset config not available - WS2 config-driven test skipped")
+    
+    # Test WS2 config-driven function
+    try:
+        from src.features.ws2_timeseries_features import add_timeseries_features_config
+        
+        # Run WS2 with config-driven approach
+        enriched_df = add_timeseries_features_config(master_df, config)
+        
+        # Verify lag features exist (FreshRetail naming)
+        expected_lag_cols = [f'sales_quantity_lag_{lag}' for lag in config.get('lag_periods', [1, 24, 48, 168])]
+        found_lags = [col for col in expected_lag_cols[:2] if col in enriched_df.columns]  # Check first 2 lags
+        assert len(found_lags) > 0, f"Missing expected lag features. Expected: {expected_lag_cols[:2]}, Found: {list(enriched_df.columns)}"
+        
+        # Verify rolling features exist (if configured)
+        if config.get('rolling_windows'):
+            rolling_cols = [col for col in enriched_df.columns if 'rolling_mean' in col or 'rolling_std' in col]
+            assert len(rolling_cols) > 0, "Should have rolling features"
+        
+        # Verify calendar features (if intraday patterns enabled)
+        if config.get('has_intraday_patterns', False):
+            assert 'hour_of_day' in enriched_df.columns or 'hour_sin' in enriched_df.columns, \
+                "FreshRetail should have intraday pattern features"
+            assert 'day_of_week' in enriched_df.columns or 'dow_sin' in enriched_df.columns, \
+                "Should have day of week features"
+        
+        # Verify no leakage: lag_1 should always be NaN for first period of each product/store
+        first_periods = enriched_df.groupby(['product_id', 'store_id']).head(1)
+        lag_cols = [col for col in enriched_df.columns if '_lag_1' in col]
+        if lag_cols:
+            for lag_col in lag_cols[:1]:  # Check first lag column
+                if lag_col in first_periods.columns:
+                    assert first_periods[lag_col].isna().all(), \
+                        f"Lag feature {lag_col} leaked into first period!"
+        
+    except ImportError as e:
+        pytest.skip(f"WS2 config-driven function not available: {e}")
+    except Exception as e:
+        pytest.fail(f"WS2 test failed: {e}")
 
 
 @pytest.mark.smoke
@@ -174,11 +222,11 @@ def test_freshretail_sample_data(sample_freshretail_data):
 def test_directory_structure():
     """Test that required directories exist."""
     required_dirs = [
-        PROJECT_ROOT / 'data' / 'poc_data',
-        PROJECT_ROOT / 'data' / 'processed',
-        PROJECT_ROOT / 'models',
-        PROJECT_ROOT / 'reports' / 'metrics',
-        PROJECT_ROOT / 'tests',
+        PROJECT_ROOT / 'data' / '2_raw',        # Raw data directory
+        PROJECT_ROOT / 'data' / '3_processed',  # Processed data directory
+        PROJECT_ROOT / 'models',                # Models directory
+        PROJECT_ROOT / 'reports' / 'metrics',   # Metrics directory
+        PROJECT_ROOT / 'tests',                 # Tests directory
     ]
 
     for directory in required_dirs:

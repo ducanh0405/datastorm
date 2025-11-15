@@ -55,6 +55,12 @@ def main():
     try:
         if args.prefect_server:
             logger.info("Using Prefect server for orchestration")
+            logger.info("   NOTE: Prefect server is optional. For local development, you can skip this.")
+            logger.info("   To use Prefect server:")
+            logger.info("   1. Start Prefect server: prefect server start")
+            logger.info("   2. Open Prefect UI: http://localhost:4200")
+            logger.info("   3. Run pipeline with --prefect-server flag")
+            logger.warning("   If Prefect server is not running, pipeline will use local execution.")
             # Additional Prefect server setup would go here
         else:
             logger.info("Using local Prefect execution")

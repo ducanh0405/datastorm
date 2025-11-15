@@ -23,7 +23,7 @@ import pandas as pd
 
 # Import centralized config
 try:
-    from ..config import setup_logging, get_dataset_config
+    from src.config import setup_logging, get_dataset_config
 
     setup_logging()
     logger = logging.getLogger(__name__)

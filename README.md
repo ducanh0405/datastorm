@@ -54,11 +54,14 @@ python scripts/setup_data_quality.py
 
 ### Chạy Pipeline
 ```bash
-# Chạy pipeline hiện đại với monitoring
+# Chạy pipeline hiện đại v2 với monitoring (khuyến nghị)
+python run_modern_pipeline_v2.py --full-data
+
+# Hoặc chạy pipeline hiện đại v1
 python run_modern_pipeline.py --full-data
 
-# Hoặc chạy pipeline truyền thống
-python run_pipeline.py --full-data
+# Test với sample data (nhanh hơn)
+python run_modern_pipeline_v2.py --full-data --sample 0.1
 
 # Giám sát chất lượng dữ liệu
 python scripts/monitor_data_quality.py
@@ -66,12 +69,13 @@ python scripts/monitor_data_quality.py
 
 ### Tạo Dashboard
 ```bash
-# Tạo dashboard tương tác
-python scripts/create_dashboard.py
+# Dashboard được tạo tự động sau khi chạy prediction pipeline
+# Hoặc chạy trực tiếp module dashboard
+python -m src.pipelines._07_dashboard
 
-# Mở dashboard
-start reports/dashboard/index.html  # Windows
-open reports/dashboard/index.html   # Mac
+# Mở dashboard (sau khi đã tạo)
+start reports/dashboard/forecast_dashboard.html  # Windows
+open reports/dashboard/forecast_dashboard.html   # Mac
 ```
 
 ## 📁 Cấu trúc dự án
@@ -84,9 +88,9 @@ E-Grocery_Forecaster/
 │   ├── utils/             # Utilities (caching, validation, etc.)
 │   └── config.py          # Configuration
 ├── data/
-│   ├── 1_poc_data/        # POC datasets
-│   ├── 2_raw/            # Production data
-│   └── 3_processed/      # Processed data
+│   ├── poc_data/         # POC test datasets (optional)
+│   ├── 2_raw/            # Production raw data
+│   └── 3_processed/      # Processed feature tables
 ├── models/               # Trained models
 ├── reports/              # Outputs & dashboard
 ├── scripts/              # Utility scripts
@@ -103,11 +107,13 @@ E-Grocery_Forecaster/
 
 ## 🔧 Tech Stack
 
-- **ML**: LightGBM, Optuna
+- **ML**: LightGBM (default), Optuna, CatBoost (optional)
 - **Data**: Pandas, Polars, PyArrow
 - **Visualization**: Plotly, Matplotlib
-- **Orchestration**: Prefect
+- **Orchestration**: Prefect (optional server mode)
 - **Quality**: Great Expectations
+
+**Note**: CatBoost and Prefect server are optional. LightGBM is the default and recommended model.
 
 ## 📚 Documentation
 

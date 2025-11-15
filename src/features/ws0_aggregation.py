@@ -26,7 +26,7 @@ except ImportError:
 
 # Import centralized config
 try:
-    from ..config import AGGREGATION_CONFIG, PERFORMANCE_CONFIG, get_dataset_config, setup_logging
+    from src.config import AGGREGATION_CONFIG, PERFORMANCE_CONFIG, get_dataset_config, setup_logging
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError:
@@ -58,7 +58,7 @@ except ImportError:
 # Helper functions
 def _get_fill_columns(df_columns):
     """Get columns that should be zero-filled."""
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
 
     # Use target column from config
@@ -75,7 +75,7 @@ def _get_fill_columns(df_columns):
 
 def _get_agg_rules(df_columns):
     """Get aggregation rules for existing columns."""
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
 
     # Use target column from config
@@ -310,7 +310,7 @@ def prepare_master_dataframe_polars(raw_transactions: pd.DataFrame) -> pd.DataFr
     ).all()
 
     if not is_sorted:
-        from ..config import get_dataset_config
+        from src.config import get_dataset_config
         config = get_dataset_config()
         sort_cols = config['groupby_keys']
         master_df_pd = master_df_pd.sort_values(sort_cols).reset_index(drop=True)
@@ -323,7 +323,7 @@ def prepare_master_dataframe_polars(raw_transactions: pd.DataFrame) -> pd.DataFr
 # Pandas implementation (fallback)
 def aggregate_to_weekly_pandas(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate transactions to weekly/hours level using pandas."""
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
     groupby_keys = config['groupby_keys']
 
@@ -348,7 +348,7 @@ def aggregate_to_weekly_pandas(df: pd.DataFrame) -> pd.DataFrame:
 
 def create_master_grid_pandas(df_agg: pd.DataFrame) -> pd.DataFrame:
     """Create complete grid with zero-filling using pandas."""
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
 
     # Get dimensions based on config
@@ -390,7 +390,7 @@ def create_master_grid_pandas(df_agg: pd.DataFrame) -> pd.DataFrame:
     master_df[fill_cols] = master_df[fill_cols].fillna(0)
 
     # Dynamic sorting based on dataset
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
     sort_cols = config['groupby_keys']
     master_df = master_df.sort_values(sort_cols).reset_index(drop=True)
@@ -410,7 +410,7 @@ def prepare_master_dataframe_pandas(raw_transactions: pd.DataFrame) -> pd.DataFr
     logger.info(f"WS0-Pandas: Processing {len(raw_transactions):,} transactions")
 
     # Handle column name conversion for different datasets
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
 
     # For FreshRetail: convert 'dt' to 'hour_timestamp' if needed
@@ -521,7 +521,7 @@ def create_optimized_master_grid(df_weekly: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with time series for active product-store pairs only
     """
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
 
     # Get column names from config
@@ -565,7 +565,7 @@ def create_optimized_master_grid(df_weekly: pd.DataFrame) -> pd.DataFrame:
     master_df[fill_cols] = master_df[fill_cols].fillna(0)
 
     # Sort by time dimension for time-series features
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
     sort_cols = config['groupby_keys']
     master_df = master_df.sort_values(sort_cols).reset_index(drop=True)
@@ -638,7 +638,7 @@ def create_master_grid_pandas_chunked(df_weekly: pd.DataFrame) -> pd.DataFrame:
     master_df = pd.concat(chunks, ignore_index=True)
 
     # Sort for time ordering
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
     sort_cols = config['groupby_keys']
     master_df = master_df.sort_values(sort_cols).reset_index(drop=True)

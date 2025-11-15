@@ -84,7 +84,7 @@ def parallel_groupby_apply(
     # Process groups in parallel
     # Try 'multiprocessing' first (faster for CPU-intensive tasks)
     # Fallback to 'threading' if multiprocessing fails (e.g., on Windows with nested functions)
-    # FIX [C2]: Add proper exception handling to prevent silent failures
+    # Includes proper exception handling to prevent silent failures
     backend = 'multiprocessing'
     try:
         results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
@@ -147,7 +147,7 @@ def parallel_chunk_apply(
     chunks = [df.iloc[i:i+chunk_size].copy() for i in range(0, len(df), chunk_size)]
     
     # Try multiprocessing first, fallback to threading if needed
-    # FIX [C2]: Add proper exception handling to prevent silent failures
+    # Includes proper exception handling to prevent silent failures
     backend = 'multiprocessing'
     try:
         results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
@@ -206,7 +206,7 @@ def parallel_column_apply(
     logger.info(f"Parallel processing {len(columns)} columns with {n_jobs} jobs...")
     
     # Try multiprocessing first, fallback to threading if needed
-    # FIX [C2]: Add proper exception handling to prevent silent failures
+    # Includes proper exception handling to prevent silent failures
     backend = 'multiprocessing'
     try:
         results = Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(

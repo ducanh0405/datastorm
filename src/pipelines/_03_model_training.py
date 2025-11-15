@@ -44,21 +44,28 @@ import json
 from typing import Dict, Tuple, List, Any, Optional
 import argparse
 
-# FIX Task 2.1 - Import feature selection utilities
+# Import feature selection utilities for optimal feature subset selection
 from src.features.feature_selection import get_optimal_features
 
 # Import optional models
+# Note: Logger is initialized above, so it's safe to use here
 try:
     import catboost as cb
     CATBOOST_AVAILABLE = True
-except ImportError:
+    logger.debug("CatBoost is available")
+except ImportError as e:
     CATBOOST_AVAILABLE = False
     # CatBoost installation on Windows may require Rust compiler
     # Users can install via: pip install catboost --no-build-isolation
     # Or use conda: conda install -c conda-forge catboost
-    logger.warning("CatBoost not available. CatBoost will be skipped. "
-                   "To install on Windows, try: pip install catboost --no-build-isolation "
-                   "or use conda: conda install -c conda-forge catboost")
+    # Only log warning if logger is initialized
+    if logger:
+        logger.warning(
+            f"CatBoost not available (ImportError: {e}). CatBoost will be skipped. "
+            "To install on Windows, try: pip install catboost --no-build-isolation "
+            "or use conda: conda install -c conda-forge catboost"
+        )
+    cb = None  # Set to None to prevent NameError
 
 warnings.filterwarnings('ignore')
 
@@ -77,7 +84,8 @@ def get_features_from_config(config: Dict) -> Tuple[List[str], List[str]]:
     """
     Builds the feature lists dynamically based on dataset config toggles.
     
-    FIX Task 2.2 - Refactored to use new dict-based ALL_FEATURES_CONFIG with type metadata
+    Uses dict-based ALL_FEATURES_CONFIG with type metadata to automatically
+    identify categorical vs numeric features.
     """
     logger.info("Building feature list from config toggles...")
     all_features = []
@@ -139,8 +147,8 @@ def prepare_data(df: pd.DataFrame, config: Dict) -> Tuple[pd.DataFrame, pd.DataF
     # Lọc: chỉ giữ lại các features có trong df
     all_features = [col for col in all_features_config if col in df.columns]
     
-    # FIX Task 2.2 - Removed hardcoded manual_cats, now using config metadata
     # Filter categorical features to only those present in df
+    # Categorical features are automatically identified from config metadata
     categorical_features = [col for col in all_categorical_config if col in df.columns]
 
     logger.info(f"Found {len(all_features)} total features.")
@@ -149,8 +157,8 @@ def prepare_data(df: pd.DataFrame, config: Dict) -> Tuple[pd.DataFrame, pd.DataF
     X = df_model[all_features]
     y = df_model[target_col]
     
-    # FIX Task 2.3 - Intelligent Missing Value Handling
-    # --------------------------------------------------
+    # Intelligent Missing Value Handling
+    # -----------------------------------
     # Different strategies for different feature types:
     # 1. Lag/rolling features: fillna(0) is appropriate (missing = no historical data)
     # 2. Weather features: should NOT be 0 (already handled in WS6 with ffill/bfill/mean)
@@ -181,8 +189,7 @@ def prepare_data(df: pd.DataFrame, config: Dict) -> Tuple[pd.DataFrame, pd.DataF
     if sensitive_features:
         for col in sensitive_features:
             if X[col].isnull().any():
-                # FIX [C1]: Replace deprecated fillna(method=) with .ffill()/.bfill() for pandas 2.x compatibility
-                # Forward fill -> backward fill -> mean
+                # Forward fill -> backward fill -> mean (pandas 2.x compatible)
                 X[col] = X[col].ffill().bfill().fillna(X[col].mean())
         logger.info(f"Filled {len(sensitive_features)} weather/price features with ffill/bfill/mean")
     
@@ -253,10 +260,20 @@ def create_model(model_type: str, quantile: float, categorical_features: List[st
     if model_type == 'lightgbm':
         model = lgb.LGBMRegressor(**params)
     elif model_type == 'catboost':
-        if not CATBOOST_AVAILABLE:
-            raise ImportError("CatBoost not available. Install with: pip install catboost")
-        # CatBoost cũng cần wrapper
-        model = cb.CatBoostRegressor(**{k: v for k, v in params.items() if k != 'quantile'})
+        if not CATBOOST_AVAILABLE or cb is None:
+            error_msg = (
+                "CatBoost not available. Install with: "
+                "pip install catboost --no-build-isolation "
+                "or use conda: conda install -c conda-forge catboost"
+            )
+            logger.error(error_msg)
+            raise ImportError(error_msg)
+        try:
+            # CatBoost cũng cần wrapper
+            model = cb.CatBoostRegressor(**{k: v for k, v in params.items() if k != 'quantile'})
+        except Exception as e:
+            logger.error(f"Failed to create CatBoost model: {e}")
+            raise RuntimeError(f"CatBoost model creation failed: {e}") from e
     elif model_type == 'random_forest':
         # Random Forest cần wrapper
         model = RandomForestRegressor(**{k: v for k, v in params.items() if k != 'quantile'})
@@ -309,13 +326,19 @@ def train_quantile_model(
             categorical_feature=categorical_features
         )
     elif model_type == 'catboost':
-        # CatBoost hỗ trợ categorical features trực tiếp
-        cat_indices = [i for i, col in enumerate(X_train.columns) if col in categorical_features]
-        model.fit(
-            X_train, y_train,
-            cat_features=cat_indices,
-            verbose=False
-        )
+        if not CATBOOST_AVAILABLE or cb is None:
+            raise ImportError("CatBoost not available")
+        try:
+            # CatBoost hỗ trợ categorical features trực tiếp
+            cat_indices = [i for i, col in enumerate(X_train.columns) if col in categorical_features]
+            model.fit(
+                X_train, y_train,
+                cat_features=cat_indices,
+                verbose=False
+            )
+        except Exception as e:
+            logger.error(f"CatBoost training failed: {e}")
+            raise RuntimeError(f"CatBoost training error: {e}") from e
     else:
         # Random Forest và các model khác
         X_train_encoded = encode_categorical(X_train, categorical_features)
@@ -436,7 +459,13 @@ def predict_with_model(model: Any, model_type: str, X: pd.DataFrame,
     if model_type == 'lightgbm':
         return model.predict(X)
     elif model_type == 'catboost':
-        return model.predict(X)
+        if not CATBOOST_AVAILABLE or cb is None:
+            raise ImportError("CatBoost not available")
+        try:
+            return model.predict(X)
+        except Exception as e:
+            logger.error(f"CatBoost prediction failed: {e}")
+            raise RuntimeError(f"CatBoost prediction error: {e}") from e
     else:
         # Random Forest và các model khác cần encode categorical
         X_encoded = encode_categorical_for_prediction(X, categorical_features)
@@ -567,7 +596,7 @@ def main(args) -> None:
     logger.info("STEP 2: PREPARE DATA & TIME-BASED SPLIT")
     X_train, X_test, y_train, y_test, features, cat_features = prepare_data(df, config)
 
-    # FIX Task 2.1 - Add Feature Selection (Step 2.5)
+    # Feature Selection (Step 2.5) - Select optimal feature subset
     logger.info("=" * 70)
     logger.info("STEP 2.5: FEATURE SELECTION")
     logger.info("=" * 70)
@@ -622,7 +651,7 @@ def main(args) -> None:
 
     # 6. Save
     logger.info("STEP 5: SAVE ARTIFACTS")
-    # FIX Task 2.1 - Save selected features instead of all features
+    # Save selected features (or all features if selection was skipped)
     final_features_config = {
         "all_features": selected_features if not args.skip_feature_selection else features,
         "categorical_features": cat_features,
@@ -643,7 +672,6 @@ if __name__ == "__main__":
     parser.add_argument('--tune', action='store_true', help='Enable hyperparameter tuning (nếu được implement)')
     parser.add_argument('--model-types', nargs='+', type=str, default=None,
                        help='Model types to train (lightgbm, catboost, random_forest)')
-    # FIX Task 2.1 - Add flag to skip feature selection if needed
     parser.add_argument('--skip-feature-selection', action='store_true',
                        help='Skip automatic feature selection and use all features')
     args = parser.parse_args()

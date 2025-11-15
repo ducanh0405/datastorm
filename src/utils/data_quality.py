@@ -18,12 +18,13 @@ try:
     from great_expectations.core.expectation_configuration import ExpectationConfiguration
     from great_expectations.validator.validator import Validator
     HAS_GREAT_EXPECTATIONS = True
-except ImportError:
+except ImportError as e:
     HAS_GREAT_EXPECTATIONS = False
     ge = None
     ExpectationSuite = None
     ExpectationConfiguration = None
     Validator = None
+    _ge_import_error = e
 
 try:
     from evidently import ColumnMapping
@@ -40,6 +41,13 @@ except ImportError:
 from src.config import OUTPUT_FILES, PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
+
+# Log optional dependencies availability
+if not HAS_GREAT_EXPECTATIONS:
+    logger.warning(
+        f"Great Expectations not available (ImportError: {_ge_import_error}). "
+        "GX validation will be disabled. Install with: pip install great-expectations"
+    )
 
 
 class DataQualityMonitor:
@@ -58,6 +66,11 @@ class DataQualityMonitor:
 
     def _setup_great_expectations(self):
         """Setup Great Expectations context."""
+        if not HAS_GREAT_EXPECTATIONS or ge is None:
+            logger.warning("Great Expectations not available. Skipping GX setup.")
+            self.gx_context = None
+            return
+        
         try:
             gx_dir = PROJECT_ROOT / 'great_expectations'
             gx_dir.mkdir(exist_ok=True)
@@ -69,14 +82,14 @@ class DataQualityMonitor:
                     'great_expectations', 'init', '--no-view'
                 ], cwd=PROJECT_ROOT, capture_output=True)
 
-            import great_expectations as ge
             self.gx_context = ge.get_context()
+            logger.debug("Great Expectations context initialized")
 
         except Exception as e:
-            logger.warning(f"Great Expectations setup failed: {e}")
+            logger.error(f"Great Expectations setup failed: {e}", exc_info=True)
             self.gx_context = None
 
-    def create_expectation_suite(self, df: pd.DataFrame, dataset_name: str) -> ExpectationSuite:
+    def create_expectation_suite(self, df: pd.DataFrame, dataset_name: str) -> Optional[ExpectationSuite]:
         """
         Create comprehensive expectation suite for a dataset.
 
@@ -85,8 +98,12 @@ class DataQualityMonitor:
             dataset_name: Name of the dataset
 
         Returns:
-            ExpectationSuite with comprehensive validations
+            ExpectationSuite with comprehensive validations, or None if GX unavailable
         """
+        if not HAS_GREAT_EXPECTATIONS or ExpectationSuite is None:
+            logger.warning("Great Expectations not available. Cannot create expectation suite.")
+            return None
+        
         suite = ExpectationSuite(f"{dataset_name}_suite")
 
         # Basic expectations
@@ -178,6 +195,9 @@ class DataQualityMonitor:
             # Create expectation suite
             suite = self.create_expectation_suite(df, dataset_name)
 
+            if not HAS_GREAT_EXPECTATIONS or ge is None:
+                raise ImportError("Great Expectations is not available")
+            
             # Create validator
             batch = ge.Batch(data=df, name=f"{dataset_name}_batch")
             validator = self.gx_context.get_validator(

@@ -8,7 +8,12 @@ joblib==1.4.2
 lightgbm==4.5.0
 shap==0.45.0
 optuna==4.1.0
-# catboost==1.2.5  # Optional: Có thể gặp vấn đề trên Windows, cài đặt bằng: pip install catboost --no-build-isolation hoặc conda install -c conda-forge catboost
+# catboost==1.2.5  # OPTIONAL: CatBoost is an optional alternative model. 
+#                  # To enable CatBoost support, uncomment this line and install:
+#                  #   Windows: pip install catboost --no-build-isolation
+#                  #   Linux/Mac: pip install catboost
+#                  #   Or use conda: conda install -c conda-forge catboost
+#                  # Note: LightGBM is the default and recommended model. CatBoost is only needed if you want to compare models.
 
 # Data processing and storage
 pyarrow==18.1.0

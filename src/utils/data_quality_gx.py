@@ -35,10 +35,19 @@ from datetime import datetime
 try:
     import great_expectations as gx
     GX_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     GX_AVAILABLE = False
+    gx = None
+    _gx_import_error = e
 
 logger = logging.getLogger(__name__)
+
+# Log GX availability status when module is imported
+if not GX_AVAILABLE:
+    logger.warning(
+        f"Great Expectations not available (ImportError: {_gx_import_error}). "
+        "GX validation will be disabled. Install with: pip install great-expectations"
+    )
 
 # Project paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -66,24 +75,26 @@ class DataQualityValidator:
     
     def _initialize_context(self):
         """Initialize GX context if available"""
-        if not GX_AVAILABLE:
+        if not GX_AVAILABLE or gx is None:
             logger.warning("Great Expectations not available. Validation disabled.")
+            self.context = None
             return
         
         if not self.gx_root.exists():
             logger.warning(f"GX not setup at {self.gx_root}. Run setup_great_expectations.py")
+            self.context = None
             return
         
         try:
             self.context = gx.get_context(context_root_dir=str(self.gx_root))
             logger.debug("GX context initialized")
         except Exception as e:
-            logger.warning(f"Failed to initialize GX context: {e}")
+            logger.error(f"Failed to initialize GX context: {e}", exc_info=True)
             self.context = None
     
     def is_available(self) -> bool:
         """Check if GX validation is available"""
-        return GX_AVAILABLE and self.context is not None
+        return GX_AVAILABLE and gx is not None and self.context is not None
     
     def validate(
         self,
@@ -126,6 +137,12 @@ class DataQualityValidator:
         logger.info(f"Running GX validation on {asset_name}: {df.shape}")
         
         try:
+            if not GX_AVAILABLE or gx is None:
+                raise ImportError("Great Expectations is not available")
+            
+            if self.context is None:
+                raise RuntimeError("GX context is not initialized")
+            
             # Create batch request
             batch_request = {
                 "datasource_name": "master_feature_datasource",
@@ -193,13 +210,25 @@ class DataQualityValidator:
             
             return validation_result
             
-        except Exception as e:
-            logger.error(f"Validation error: {e}")
+        except ImportError as e:
+            error_msg = f"Great Expectations not available: {e}"
+            logger.error(error_msg)
             if fail_on_error:
-                raise
+                raise ImportError(error_msg) from e
             return {
                 'success': False,
-                'error': str(e),
+                'error': error_msg,
+                'timestamp': datetime.now().isoformat(),
+                'data_shape': df.shape
+            }
+        except Exception as e:
+            error_msg = f"GX validation error: {e}"
+            logger.error(error_msg, exc_info=True)
+            if fail_on_error:
+                raise RuntimeError(error_msg) from e
+            return {
+                'success': False,
+                'error': error_msg,
                 'timestamp': datetime.now().isoformat(),
                 'data_shape': df.shape
             }

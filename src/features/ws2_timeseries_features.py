@@ -55,7 +55,7 @@ except ImportError:
 
 # Import centralized config
 try:
-    from ..config import setup_logging, PERFORMANCE_CONFIG, get_dataset_config
+    from src.config import setup_logging, PERFORMANCE_CONFIG, get_dataset_config
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError:
@@ -78,7 +78,7 @@ except ImportError:
 
 # Import parallel processing utilities
 try:
-    from ..utils.parallel_processing import parallel_groupby_apply
+    from src.utils.parallel_processing import parallel_groupby_apply
     HAS_PARALLEL = True
 except ImportError:
     HAS_PARALLEL = False
@@ -421,7 +421,7 @@ def create_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with calendar features
     """
-    from ..config import get_dataset_config
+    from src.config import get_dataset_config
     config = get_dataset_config()
     time_col = config['time_column']
     temporal_unit = config['temporal_unit']

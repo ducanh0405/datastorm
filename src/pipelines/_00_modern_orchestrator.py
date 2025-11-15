@@ -52,7 +52,7 @@ from src.utils.validation import comprehensive_validation
 from src.utils.data_quality import DataQualityMonitor
 from src.utils.alerting import alert_manager
 from src.utils.caching import pipeline_cache
-# FIX Task 1.3 - Import monitoring & lineage tracking
+# Import monitoring & lineage tracking for pipeline observability
 from src.utils.performance_monitor import performance_monitor
 from src.utils.data_lineage import lineage_tracker, DataArtifact, PipelineStep
 
@@ -340,7 +340,7 @@ def modern_pipeline_flow(full_data: bool = False):
     """
     logger = get_run_logger()
 
-    # FIX Task 1.3 - Start monitoring at pipeline start
+    # Start performance monitoring at pipeline start
     performance_monitor.start_monitoring()
     logger.info("✅ Performance monitoring started")
 
@@ -352,7 +352,7 @@ def modern_pipeline_flow(full_data: bool = False):
     # Step 1: Load and validate data
     dataframes = load_and_validate_data(dataset_config)
     
-    # FIX Task 1.3 - Track data loading in lineage
+    # Track data loading in lineage for observability
     for name, df in dataframes.items():
         artifact = DataArtifact(
             name=name,
@@ -374,7 +374,7 @@ def modern_pipeline_flow(full_data: bool = False):
     # Step 5: Generate quality report
     generate_quality_report()
 
-    # FIX Task 1.3 - Stop monitoring and save results
+    # Stop performance monitoring and save results
     monitoring_summary = performance_monitor.stop_monitoring()
     logger.info("✅ Performance monitoring stopped")
     logger.info(f"📊 Session summary: {monitoring_summary.get('session_duration', 0):.2f}s total")

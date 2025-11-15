@@ -23,7 +23,7 @@ def _load_file(data_dir: Path, file_stem: str) -> pd.DataFrame:
     """
     Helper to load .parquet or .csv with error handling.
     
-    FIX [H1]: Add file corruption and I/O error handling
+    Handles file corruption, I/O errors, and provides CSV fallback if parquet fails.
     """
     parquet_path = data_dir / f"{file_stem}.parquet"
     csv_path = data_dir / f"{file_stem}.csv"
@@ -61,7 +61,7 @@ def _sample_data_for_memory_optimization(dataframes: Dict[str, pd.DataFrame], co
     """
     Sample data để giảm kích thước nếu cần thiết cho máy có RAM hạn chế.
     
-    FIX [H3]: Add input validation for memory optimization parameters
+    Includes input validation for memory optimization parameters to prevent invalid configurations.
     """
     from src.config import MEMORY_OPTIMIZATION
     
@@ -78,7 +78,7 @@ def _sample_data_for_memory_optimization(dataframes: Dict[str, pd.DataFrame], co
         
         # Sample by fraction with validation
         sample_fraction = MEMORY_OPTIMIZATION.get('sample_fraction', 0.1)
-        # FIX [H3]: Validate sample_fraction
+        # Validate sample_fraction type and value
         if not isinstance(sample_fraction, (int, float)):
             logger.error(f"Invalid sample_fraction type: {type(sample_fraction)}. Using default 0.1")
             sample_fraction = 0.1
@@ -91,7 +91,7 @@ def _sample_data_for_memory_optimization(dataframes: Dict[str, pd.DataFrame], co
         
         # Limit products with validation
         max_products = MEMORY_OPTIMIZATION.get('max_products')
-        # FIX [H3]: Validate max_products
+        # Validate max_products type and value
         if max_products is not None:
             if not isinstance(max_products, int) or max_products <= 0:
                 logger.error(f"Invalid max_products: {max_products}. Ignoring.")

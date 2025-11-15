@@ -110,8 +110,7 @@ def get_dataset_config(dataset_name=None):
     return DATASET_CONFIGS[dataset]
 
 # --- 4. FEATURE CONFIG (Modular với Type Metadata) ---
-# FIX Task 2.2 - Refactored to include feature type metadata
-# Each feature now has 'name' and 'type' ('num' for numeric, 'cat' for categorical)
+# Each feature has 'name' and 'type' ('num' for numeric, 'cat' for categorical)
 # This enables automatic categorical feature detection in model training
 ALL_FEATURES_CONFIG = {
     # WS1: Relational (all categorical)
@@ -209,7 +208,7 @@ ALL_FEATURES_CONFIG = {
     ]
 }
 
-# FIX Task 2.2 - Helper function to extract features by type
+# Helper function to extract features by type from ALL_FEATURES_CONFIG
 def get_features_by_type(feature_type: str = 'all') -> List[str]:
     """
     Extract feature names from ALL_FEATURES_CONFIG.
@@ -252,6 +251,7 @@ QUANTILES = [0.05, 0.25, 0.50, 0.75, 0.95]
 MODEL_TYPES = ['lightgbm']  # Mặc định chỉ train LightGBM để test nhanh. Có thể thêm: ['lightgbm', 'catboost', 'random_forest']
 
 # LightGBM hyperparameters (Tối ưu cho tốc độ/hiệu năng trên 32GB RAM)
+# STABILITY PARAMETERS: Added for improved model stability and reproducibility
 LIGHTGBM_PARAMS = {
     'n_estimators': 600,
     'learning_rate': 0.03,
@@ -264,9 +264,31 @@ LIGHTGBM_PARAMS = {
     'random_state': 42,
     'n_jobs': PERFORMANCE_CONFIG['parallel_threads'],
     'verbose': -1,
+    
+    # Stability parameters (CRITICAL for reproducible and stable models)
+    # Prevents "No further splits with positive gain, best gain: -inf" warnings
+    # Ensures reproducible results across multiple runs
+    'force_col_wise': True,          # Force column-wise tree building (more stable than row-wise)
+    'min_data_in_leaf': 20,          # Minimum data points in leaf (prevents overfitting, improves stability)
+    'min_gain_to_split': 0.001,      # Minimum gain to split (prevents -inf gain warnings)
+    'min_split_gain': 0.001,         # Minimum gain to make a split (alias, prevents -inf gain)
+    'max_bin': 255,                  # Maximum number of bins (default 255, lower = more stable but slower)
+    # Note: colsample_bytree (line 261) already controls feature fraction (0.7), no duplicate needed
+    'bagging_freq': 1,               # Frequency for bagging (1 = every iteration, improves stability)
+    'min_child_samples': 20,         # Minimum number of data in child leaf (alias for min_data_in_leaf)
+    'subsample_for_bin': 200000,     # Number of samples for constructing bins (higher = more stable)
+    'max_delta_step': 0.0,           # Maximum delta step (0.0 = no constraint, can set to 1-10 for stability)
+    'deterministic': True,           # Enable deterministic mode (ensures reproducibility)
+    'force_row_wise': False,         # Disable row-wise (use column-wise for stability)
+    'feature_pre_filter': False,     # Disable feature pre-filtering for stability
+    'num_threads': PERFORMANCE_CONFIG['parallel_threads'],  # Explicit thread control
 }
 
-# CatBoost hyperparameters
+# CatBoost hyperparameters (OPTIONAL - only used if CatBoost is installed and enabled)
+# CatBoost is an optional alternative to LightGBM. To use it:
+# 1. Install CatBoost: pip install catboost (or see requirements.txt for Windows instructions)
+# 2. Add 'catboost' to MODEL_TYPES list in config
+# Note: LightGBM is the default and recommended model for this project.
 CATBOOST_PARAMS = {
     'iterations': 600,
     'learning_rate': 0.03,
@@ -300,6 +322,7 @@ MODEL_CONFIGS = {
         'class': 'CatBoostRegressor',
         'params': CATBOOST_PARAMS,
         'quantile_support': False,  # Cần wrapper
+        'optional': True,  # CatBoost is optional - requires separate installation
     },
     'random_forest': {
         'class': 'RandomForestRegressor',
@@ -430,3 +453,161 @@ def setup_logging(level: str = None, log_to_file: bool = None) -> None:
         file_handler = logging.FileHandler(log_file, encoding='utf-8', mode='w') # 'w' = write new log each run
         file_handler.setFormatter(logging.Formatter(log_format))
         logging.getLogger().addHandler(file_handler)
+
+# --- 9. CONFIG VALIDATION ---
+def validate_dataset_config(config: Dict[str, Any]) -> List[str]:
+    """
+    Validate dataset configuration and return list of errors.
+    
+    Args:
+        config: Dataset configuration dictionary
+        
+    Returns:
+        List of error messages (empty if valid)
+    """
+    errors = []
+    
+    # Required fields
+    required_fields = ['name', 'temporal_unit', 'time_column', 'target_column', 'groupby_keys']
+    for field in required_fields:
+        if field not in config:
+            errors.append(f"Missing required field: {field}")
+    
+    # Validate temporal_unit
+    if 'temporal_unit' in config:
+        valid_units = ['hour', 'day', 'week', 'month']
+        if config['temporal_unit'] not in valid_units:
+            errors.append(f"Invalid temporal_unit: {config['temporal_unit']}. Must be one of: {valid_units}")
+    
+    # Validate groupby_keys
+    if 'groupby_keys' in config:
+        if not isinstance(config['groupby_keys'], list) or len(config['groupby_keys']) < 2:
+            errors.append("groupby_keys must be a list with at least 2 elements")
+    
+    # Validate time_column exists in groupby_keys
+    if 'time_column' in config and 'groupby_keys' in config:
+        if config['time_column'] not in config['groupby_keys']:
+            errors.append(f"time_column '{config['time_column']}' must be in groupby_keys")
+    
+    # Validate lag_periods
+    if 'lag_periods' in config:
+        if not isinstance(config['lag_periods'], list) or len(config['lag_periods']) == 0:
+            errors.append("lag_periods must be a non-empty list")
+        elif not all(isinstance(x, (int, float)) and x > 0 for x in config['lag_periods']):
+            errors.append("lag_periods must contain positive numbers")
+    
+    # Validate rolling_windows
+    if 'rolling_windows' in config:
+        if not isinstance(config['rolling_windows'], list):
+            errors.append("rolling_windows must be a list")
+        elif not all(isinstance(x, int) and x > 0 for x in config['rolling_windows']):
+            errors.append("rolling_windows must contain positive integers")
+    
+    # Validate boolean flags
+    boolean_flags = ['has_relational', 'has_stockout', 'has_weather', 'has_price_promo', 
+                     'has_behavior', 'has_intraday_patterns']
+    for flag in boolean_flags:
+        if flag in config and not isinstance(config[flag], bool):
+            errors.append(f"{flag} must be a boolean")
+    
+    return errors
+
+def validate_training_config() -> List[str]:
+    """
+    Validate training configuration.
+    
+    Returns:
+        List of error messages (empty if valid)
+    """
+    errors = []
+    
+    # Validate quantiles
+    if not isinstance(QUANTILES, list) or len(QUANTILES) == 0:
+        errors.append("QUANTILES must be a non-empty list")
+    elif not all(0 < q < 1 for q in QUANTILES):
+        errors.append("All quantiles must be between 0 and 1")
+    
+    # Validate model types
+    if not isinstance(MODEL_TYPES, list) or len(MODEL_TYPES) == 0:
+        errors.append("MODEL_TYPES must be a non-empty list")
+    else:
+        for model_type in MODEL_TYPES:
+            if model_type not in MODEL_CONFIGS:
+                errors.append(f"Unknown model type: {model_type}. Available: {list(MODEL_CONFIGS.keys())}")
+    
+    # Validate train_test_split
+    if 'train_test_split' in TRAINING_CONFIG:
+        split_config = TRAINING_CONFIG['train_test_split']
+        if 'cutoff_percentile' in split_config:
+            cutoff = split_config['cutoff_percentile']
+            if not isinstance(cutoff, (int, float)) or not (0 < cutoff < 1):
+                errors.append("cutoff_percentile must be between 0 and 1")
+    
+    return errors
+
+def validate_performance_config() -> List[str]:
+    """
+    Validate performance configuration.
+    
+    Returns:
+        List of error messages (empty if valid)
+    """
+    errors = []
+    
+    # Validate memory_limit_gb
+    if 'memory_limit_gb' in PERFORMANCE_CONFIG:
+        mem_limit = PERFORMANCE_CONFIG['memory_limit_gb']
+        if not isinstance(mem_limit, (int, float)) or mem_limit <= 0:
+            errors.append("memory_limit_gb must be a positive number")
+    
+    # Validate parallel_threads
+    if 'parallel_threads' in PERFORMANCE_CONFIG:
+        threads = PERFORMANCE_CONFIG['parallel_threads']
+        if not isinstance(threads, int) or threads <= 0:
+            errors.append("parallel_threads must be a positive integer")
+    
+    return errors
+
+def validate_all_configs() -> Dict[str, List[str]]:
+    """
+    Validate all configurations.
+    
+    Returns:
+        Dictionary mapping config section names to lists of errors
+    """
+    all_errors = {}
+    
+    # Validate active dataset config
+    try:
+        active_config = get_dataset_config()
+        dataset_errors = validate_dataset_config(active_config)
+        if dataset_errors:
+            all_errors['dataset_config'] = dataset_errors
+    except Exception as e:
+        all_errors['dataset_config'] = [f"Error loading dataset config: {e}"]
+    
+    # Validate training config
+    training_errors = validate_training_config()
+    if training_errors:
+        all_errors['training_config'] = training_errors
+    
+    # Validate performance config
+    performance_errors = validate_performance_config()
+    if performance_errors:
+        all_errors['performance_config'] = performance_errors
+    
+    return all_errors
+
+def assert_config_valid() -> None:
+    """
+    Assert that all configurations are valid. Raises ValueError if invalid.
+    
+    Raises:
+        ValueError: If any configuration is invalid
+    """
+    errors = validate_all_configs()
+    if errors:
+        error_messages = []
+        for section, section_errors in errors.items():
+            error_messages.append(f"{section}: {', '.join(section_errors)}")
+        raise ValueError(f"Configuration validation failed:\n" + "\n".join(error_messages))

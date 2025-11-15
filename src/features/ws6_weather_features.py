@@ -16,12 +16,13 @@ DEPENDENCIES:
 """
 
 import logging
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
 # Import centralized config
 try:
-    from ..config import setup_logging, get_dataset_config
+    from src.config import setup_logging, get_dataset_config
 
     setup_logging()
     logger = logging.getLogger(__name__)
@@ -49,12 +50,15 @@ def load_weather_data(data_dir=None) -> pd.DataFrame:
     """
     if data_dir is None:
         try:
-            from ..config import DATA_DIRS
+            from src.config import DATA_DIRS
             data_dir = DATA_DIRS['raw_data']
         except ImportError:
-            data_dir = 'data/2_raw'
+            data_dir = Path('data/2_raw')
 
-    weather_path = f"{data_dir}/weather_data.csv"
+    # Use Path object properly - convert string to Path if needed
+    if isinstance(data_dir, str):
+        data_dir = Path(data_dir)
+    weather_path = data_dir / "weather_data.csv"
 
     try:
         weather_df = pd.read_csv(weather_path)
