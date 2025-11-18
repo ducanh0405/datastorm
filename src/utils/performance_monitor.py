@@ -4,15 +4,15 @@ Performance Monitoring Module
 Monitors pipeline performance, identifies bottlenecks, and provides optimization recommendations.
 """
 import logging
-import time
-import psutil
 import threading
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Callable
-from datetime import datetime, timedelta
+import time
 from contextlib import contextmanager
-import pandas as pd
+from datetime import datetime
+from typing import Any
+
 import numpy as np
+import pandas as pd
+import psutil
 
 from src.config import PROJECT_ROOT
 
@@ -46,7 +46,7 @@ class PerformanceMonitor:
 
         logger.info("Performance monitoring started")
 
-    def stop_monitoring(self) -> Dict[str, Any]:
+    def stop_monitoring(self) -> dict[str, Any]:
         """Stop performance monitoring and return session summary."""
         if not self.monitoring_active:
             return {}
@@ -56,7 +56,7 @@ class PerformanceMonitor:
         if self.monitor_thread:
             self.monitor_thread.join(timeout=5)
 
-        session_duration = time.time() - self.session_start_time
+        time.time() - self.session_start_time
         session_summary = self._analyze_session()
 
         # Save session data
@@ -79,7 +79,7 @@ class PerformanceMonitor:
                 logger.warning(f"Monitoring error: {e}")
                 break
 
-    def _collect_system_metrics(self) -> Dict[str, Any]:
+    def _collect_system_metrics(self) -> dict[str, Any]:
         """Collect current system performance metrics."""
         try:
             # CPU metrics
@@ -129,7 +129,7 @@ class PerformanceMonitor:
             return {}
 
     @contextmanager
-    def time_operation(self, operation_name: str, metadata: Optional[Dict[str, Any]] = None):
+    def time_operation(self, operation_name: str, metadata: dict[str, Any] | None = None):
         """
         Context manager to time an operation.
 
@@ -161,7 +161,7 @@ class PerformanceMonitor:
             self.current_session.append(operation_record)
             logger.debug(f"Timed operation '{operation_name}': {duration:.2f}s")
 
-    def record_operation(self, operation_name: str, duration: float, metadata: Optional[Dict[str, Any]] = None):
+    def record_operation(self, operation_name: str, duration: float, metadata: dict[str, Any] | None = None):
         """
         Record an operation manually.
 
@@ -179,7 +179,7 @@ class PerformanceMonitor:
 
         self.current_session.append(operation_record)
 
-    def _analyze_session(self) -> Dict[str, Any]:
+    def _analyze_session(self) -> dict[str, Any]:
         """Analyze the current monitoring session."""
         if not self.current_session:
             return {}
@@ -216,7 +216,7 @@ class PerformanceMonitor:
 
         return analysis
 
-    def _identify_bottlenecks(self, metrics_df: pd.DataFrame) -> List[str]:
+    def _identify_bottlenecks(self, metrics_df: pd.DataFrame) -> list[str]:
         """Identify performance bottlenecks."""
         bottlenecks = []
 
@@ -241,7 +241,7 @@ class PerformanceMonitor:
 
         return bottlenecks
 
-    def _analyze_operations(self, operations_df: pd.DataFrame) -> Dict[str, Any]:
+    def _analyze_operations(self, operations_df: pd.DataFrame) -> dict[str, Any]:
         """Analyze operation performance."""
         stats = {}
 
@@ -269,7 +269,7 @@ class PerformanceMonitor:
 
         return stats
 
-    def _save_session_data(self, session_summary: Dict[str, Any]):
+    def _save_session_data(self, session_summary: dict[str, Any]):
         """Save session data to disk."""
         try:
             perf_dir = PROJECT_ROOT / 'reports' / 'performance'
@@ -299,7 +299,7 @@ class PerformanceMonitor:
         except Exception as e:
             logger.error(f"Failed to save performance data: {e}")
 
-    def get_performance_recommendations(self) -> List[str]:
+    def get_performance_recommendations(self) -> list[str]:
         """
         Generate performance optimization recommendations.
 
@@ -351,7 +351,7 @@ class PerformanceMonitor:
 
         return recommendations
 
-    def get_system_info(self) -> Dict[str, Any]:
+    def get_system_info(self) -> dict[str, Any]:
         """
         Get system information.
 

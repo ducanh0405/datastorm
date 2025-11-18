@@ -4,7 +4,6 @@ Ensemble Models Pipeline
 Meta-models that combine quantile predictions for improved forecasting.
 """
 import logging
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -183,42 +182,95 @@ class EnsembleForecaster:
         return quantile_preds
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """
+    Main function for ensemble predictions pipeline.
+    Compatible with orchestrator calling pattern.
+    """
+    logger.info("=" * 70)
+    logger.info("ENSEMBLE PREDICTIONS PIPELINE")
+    logger.info("=" * 70)
+
     # Setup project path and logging
-    from src.config import setup_project_path, setup_logging, OUTPUT_FILES
+    from src.config import OUTPUT_FILES, setup_logging, setup_project_path
     setup_project_path()
     setup_logging()
-    
-    from src.pipelines._05_prediction import QuantileForecaster
+
     import pandas as pd
-    
-    logger.info("=" * 70)
-    logger.info("RUNNING ENSEMBLE PREDICTIONS")
-    logger.info("=" * 70)
-    
+
+    from src.pipelines._05_prediction import QuantileForecaster
+
     # Load data
     logger.info("Loading master feature table...")
     df = pd.read_parquet(OUTPUT_FILES['master_feature_table'])
-    
-    # Use test set (last 20% of weeks)
-    test_cutoff = df['WEEK_NO'].quantile(0.8)
-    df_test = df[df['WEEK_NO'] >= test_cutoff].copy()
+
+    # Use test set (last 20% of time period - same as prediction pipeline)
+    test_cutoff = df['hour_timestamp'].quantile(0.8)
+    df_test = df[df['hour_timestamp'] >= test_cutoff].copy()
     logger.info(f"Predicting for {len(df_test)} test records")
-    
+
     # Initialize forecasters
     logger.info("Initializing forecasters...")
     quantile_forecaster = QuantileForecaster()
+    quantile_forecaster.load_models()  # Load trained models
     ensemble_forecaster = EnsembleForecaster(quantile_forecaster)
-    
+
     # Generate ensemble predictions
     logger.info("Generating ensemble predictions...")
     ensemble_predictions = ensemble_forecaster.predict_ensemble(df_test)
-    
+
     # Save results
     output_path = OUTPUT_FILES['reports_dir'] / 'ensemble_predictions.csv'
     ensemble_predictions.to_csv(output_path, index=False)
     logger.info(f"✅ Ensemble predictions saved to: {output_path}")
-    
+
+    # Print summary
+    logger.info("ENSEMBLE PREDICTIONS SUMMARY")
+    logger.info(f"Total predictions: {len(ensemble_predictions)}")
+    logger.info("Forecast statistics:")
+    logger.info(f"{ensemble_predictions[['forecast_q50', 'ensemble_forecast']].describe()}")
+
+    logger.info("Ensemble pipeline completed successfully")
+
+
+if __name__ == "__main__":
+    # Setup project path and logging
+    from src.config import OUTPUT_FILES, setup_logging, setup_project_path
+    setup_project_path()
+    setup_logging()
+
+    import pandas as pd
+
+    from src.pipelines._05_prediction import QuantileForecaster
+
+    logger.info("=" * 70)
+    logger.info("RUNNING ENSEMBLE PREDICTIONS")
+    logger.info("=" * 70)
+
+    # Load data
+    logger.info("Loading master feature table...")
+    df = pd.read_parquet(OUTPUT_FILES['master_feature_table'])
+
+    # Use test set (last 20% of time period - same as prediction pipeline)
+    test_cutoff = df['hour_timestamp'].quantile(0.8)
+    df_test = df[df['hour_timestamp'] >= test_cutoff].copy()
+    logger.info(f"Predicting for {len(df_test)} test records")
+
+    # Initialize forecasters
+    logger.info("Initializing forecasters...")
+    quantile_forecaster = QuantileForecaster()
+    quantile_forecaster.load_models()  # Load trained models
+    ensemble_forecaster = EnsembleForecaster(quantile_forecaster)
+
+    # Generate ensemble predictions
+    logger.info("Generating ensemble predictions...")
+    ensemble_predictions = ensemble_forecaster.predict_ensemble(df_test)
+
+    # Save results
+    output_path = OUTPUT_FILES['reports_dir'] / 'ensemble_predictions.csv'
+    ensemble_predictions.to_csv(output_path, index=False)
+    logger.info(f"✅ Ensemble predictions saved to: {output_path}")
+
     # Print summary
     print("\n" + "=" * 70)
     print("ENSEMBLE PREDICTIONS SUMMARY")
@@ -227,5 +279,5 @@ if __name__ == "__main__":
     print("\nForecast statistics:")
     print(ensemble_predictions[['forecast_q50', 'ensemble_forecast']].describe())
     print("\nSample predictions:")
-    print(ensemble_predictions[['PRODUCT_ID', 'STORE_ID', 'WEEK_NO',
+    print(ensemble_predictions[['product_id', 'store_id', 'hour_timestamp',
                                 'forecast_q50', 'ensemble_forecast']].head(10))

@@ -16,15 +16,15 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.features.ws1_relational_features import enrich_relational_features  # noqa: E402
 from src.features.ws2_timeseries_features import (  # noqa: E402
-    add_lag_rolling_features,
-    create_calendar_features,
-    create_lag_features,
-    create_rolling_features,
-    create_lag_features_config,
-    add_intraday_features,
-    create_intraday_features,
-    add_trend_features,
     add_interaction_features,
+    add_intraday_features,
+    add_lag_rolling_features,
+    add_trend_features,
+    create_calendar_features,
+    create_intraday_features,
+    create_lag_features,
+    create_lag_features_config,
+    create_rolling_features,
 )
 from src.features.ws4_price_features import add_price_promotion_features  # noqa: E402
 
@@ -177,7 +177,7 @@ class TestWS2TimeSeriesFeatures:
             'has_intraday_patterns': False,
         }
         result = create_lag_features_config(sample_master_data, config)
-        
+
         assert 'sales_value_lag_1' in result.columns
         assert 'sales_value_lag_4' in result.columns
 
@@ -185,10 +185,10 @@ class TestWS2TimeSeriesFeatures:
         """Test intraday feature creation for hourly data."""
         # Create sample hourly data
         hourly_data = sample_master_data.copy()
-        hourly_data['hour_timestamp'] = pd.date_range('2024-01-01', periods=len(hourly_data), freq='H')
-        
+        hourly_data['hour_timestamp'] = pd.date_range('2024-01-01', periods=len(hourly_data), freq='h')
+
         result = add_intraday_features(hourly_data, 'hour_timestamp')
-        
+
         assert 'hour_of_day' in result.columns
         assert 'is_morning_peak' in result.columns
         assert 'is_evening_peak' in result.columns
@@ -199,10 +199,10 @@ class TestWS2TimeSeriesFeatures:
         """Test create_intraday_features function."""
         # Create sample hourly data
         hourly_data = sample_master_data.copy()
-        hourly_data['hour_timestamp'] = pd.date_range('2024-01-01', periods=len(hourly_data), freq='H')
-        
+        hourly_data['hour_timestamp'] = pd.date_range('2024-01-01', periods=len(hourly_data), freq='h')
+
         result = create_intraday_features(hourly_data, 'hour_timestamp')
-        
+
         assert 'hour_of_day' in result.columns
         assert 'day_of_week' in result.columns
         assert 'is_morning_peak' in result.columns
@@ -218,9 +218,9 @@ class TestWS2TimeSeriesFeatures:
         # First create lag features
         df_with_lags = create_lag_features(sample_master_data, lags=[1, 4])
         df_with_rolling = create_rolling_features(df_with_lags, windows=[4, 8])
-        
+
         result = add_trend_features(df_with_rolling, target_col='SALES_VALUE')
-        
+
         # Check trend features exist
         assert 'wow_change' in result.columns or 'momentum' in result.columns or 'volatility' in result.columns
 
@@ -228,7 +228,7 @@ class TestWS2TimeSeriesFeatures:
         """Test interaction feature creation."""
         # Create base features first
         df_with_features = sample_master_data.copy()
-        
+
         # Add some base features that interactions depend on
         if 'base_price' not in df_with_features.columns:
             df_with_features['base_price'] = df_with_features['SALES_VALUE'] * 0.9
@@ -240,14 +240,14 @@ class TestWS2TimeSeriesFeatures:
             df_with_features['discount_pct'] = 0.1
         if 'is_on_display' not in df_with_features.columns:
             df_with_features['is_on_display'] = 0
-        
+
         # Add lag and rolling features for interactions
         df_with_features = create_lag_features(df_with_features, lags=[1, 4])
         df_with_features = create_rolling_features(df_with_features, windows=[4])
         df_with_features = create_calendar_features(df_with_features)
-        
+
         result = add_interaction_features(df_with_features)
-        
+
         # Check that interaction features were added (if applicable)
         interaction_cols = [col for col in result.columns if 'interaction' in col.lower() or 'ratio' in col.lower()]
         # May be empty if required base features are missing, which is OK
@@ -256,14 +256,14 @@ class TestWS2TimeSeriesFeatures:
     def test_rolling_features_with_multiple_windows(self, sample_master_data):
         """Test rolling features with multiple window sizes."""
         df_with_lags = create_lag_features(sample_master_data, lags=[1])
-        
+
         result = create_rolling_features(
             df_with_lags,
             target_col='SALES_VALUE',
             base_lag=1,
             windows=[4, 8, 12]
         )
-        
+
         assert 'rolling_mean_4_lag_1' in result.columns
         assert 'rolling_mean_8_lag_1' in result.columns
         assert 'rolling_mean_12_lag_1' in result.columns
@@ -277,12 +277,12 @@ class TestWS2TimeSeriesFeatures:
         hourly_data = pd.DataFrame({
             'PRODUCT_ID': ['P1'] * 100,
             'STORE_ID': ['S1'] * 100,
-            'hour_timestamp': pd.date_range('2024-01-01', periods=100, freq='H'),
+            'hour_timestamp': pd.date_range('2024-01-01', periods=100, freq='h'),
             'SALES_VALUE': np.random.uniform(10, 100, 100),
         })
-        
+
         result = create_calendar_features(hourly_data)
-        
+
         # Should have hourly calendar features
         assert 'day_of_year' in result.columns or 'month' in result.columns or 'quarter' in result.columns
 

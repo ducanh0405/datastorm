@@ -17,12 +17,13 @@ DEPENDENCIES:
 
 import logging
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 # Import centralized config
 try:
-    from src.config import setup_logging, get_dataset_config
+    from src.config import get_dataset_config, setup_logging
 
     setup_logging()
     logger = logging.getLogger(__name__)
@@ -98,7 +99,7 @@ def merge_weather_data(
         logger.warning("WS6: Invalid groupby_keys in dataset config. Skipping merge.")
         return sales_df
 
-    product_col, store_col, time_col = groupby_keys[0], groupby_keys[1], config['time_column']
+    _product_col, store_col, time_col = groupby_keys[0], groupby_keys[1], config['time_column']
 
     logger.info(f"Merging weather data: {weather_df.shape}")
 

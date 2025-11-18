@@ -15,9 +15,9 @@ print("[TEST] Testing Pipeline Components...")
 try:
     # Test imports
     print("[IMPORT] Testing imports...")
-    from src.config import setup_project_path, get_dataset_config
-    from src.pipelines._01_load_data import load_data
+    from src.config import get_dataset_config, setup_project_path
     from src.features.ws0_aggregation import prepare_master_dataframe
+    from src.pipelines._01_load_data import load_data
     print("[OK] All imports successful")
 
     # Test config

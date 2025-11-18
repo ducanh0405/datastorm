@@ -4,14 +4,13 @@ Alerting System for Pipeline Monitoring
 Provides automated alerting for pipeline failures, data quality issues, and performance degradation.
 Supports email, Slack, and logging-based notifications.
 """
+import json
 import logging
 import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from pathlib import Path
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-import json
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Any
 
 try:
     from slack_sdk import WebClient
@@ -47,7 +46,7 @@ class AlertManager:
         else:
             logger.warning("Slack alerting enabled but token not found or SDK not available")
 
-    def _get_slack_token(self) -> Optional[str]:
+    def _get_slack_token(self) -> str | None:
         """Get Slack token from environment or config file."""
         import os
 
@@ -59,7 +58,7 @@ class AlertManager:
             config_file = PROJECT_ROOT / 'config' / 'slack_config.json'
             if config_file.exists():
                 try:
-                    with open(config_file, 'r') as f:
+                    with open(config_file) as f:
                         config = json.load(f)
                         token = config.get('bot_token')
                 except Exception as e:
@@ -71,7 +70,7 @@ class AlertManager:
                   alert_type: str,
                   message: str,
                   severity: str = 'info',
-                  metadata: Optional[Dict[str, Any]] = None):
+                  metadata: dict[str, Any] | None = None):
         """
         Send alert through configured channels.
 
@@ -116,7 +115,7 @@ class AlertManager:
     def alert_data_quality_issue(self,
                                dataset_name: str,
                                quality_score: float,
-                               issues: List[str]):
+                               issues: list[str]):
         """
         Alert for data quality issues.
 
@@ -175,7 +174,7 @@ class AlertManager:
 
     def alert_data_drift(self,
                         dataset_name: str,
-                        drift_metrics: Dict[str, Any]):
+                        drift_metrics: dict[str, Any]):
         """
         Alert for data drift detection.
 
@@ -238,7 +237,7 @@ class AlertManager:
             }
         )
 
-    def _send_email_alert(self, alert: Dict[str, Any]):
+    def _send_email_alert(self, alert: dict[str, Any]):
         """Send alert via email."""
         if not self.alert_configs.get('enable_email_alerts', False):
             return
@@ -286,7 +285,7 @@ class AlertManager:
         except Exception as e:
             logger.error(f"Failed to send email alert: {e}")
 
-    def _send_slack_alert(self, alert: Dict[str, Any]):
+    def _send_slack_alert(self, alert: dict[str, Any]):
         """Send alert via Slack."""
         if not self.slack_client:
             return
@@ -329,7 +328,7 @@ class AlertManager:
         except Exception as e:
             logger.error(f"Slack alert error: {e}")
 
-    def _save_alert_to_file(self, alert: Dict[str, Any]):
+    def _save_alert_to_file(self, alert: dict[str, Any]):
         """Save alert to file for historical tracking."""
         try:
             alerts_dir = PROJECT_ROOT / 'logs' / 'alerts'
@@ -357,7 +356,7 @@ class AlertManager:
             config_file = PROJECT_ROOT / 'config' / 'email_config.json'
             if config_file.exists():
                 try:
-                    with open(config_file, 'r') as f:
+                    with open(config_file) as f:
                         config = json.load(f)
                         value = config.get(key, default)
                 except Exception:
@@ -378,7 +377,7 @@ class AlertManager:
             config_file = PROJECT_ROOT / 'config' / 'slack_config.json'
             if config_file.exists():
                 try:
-                    with open(config_file, 'r') as f:
+                    with open(config_file) as f:
                         config = json.load(f)
                         value = config.get(key, default)
                 except Exception:
@@ -386,7 +385,7 @@ class AlertManager:
 
         return value or default
 
-    def get_alert_summary(self, hours: int = 24) -> Dict[str, Any]:
+    def get_alert_summary(self, hours: int = 24) -> dict[str, Any]:
         """
         Get alert summary for the last N hours.
 

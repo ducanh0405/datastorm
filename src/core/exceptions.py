@@ -4,6 +4,8 @@ Custom Exceptions for SmartGrocy
 Custom exception classes for better error handling.
 """
 
+from typing import Any
+
 
 class SmartGrocyException(Exception):
     """Base exception for SmartGrocy"""
@@ -12,12 +14,12 @@ class SmartGrocyException(Exception):
 
 class PipelineError(SmartGrocyException):
     """Exception raised during pipeline execution"""
-    
+
     def __init__(self, message: str, stage: str = None, original_error: Exception = None):
         super().__init__(message)
         self.stage = stage
         self.original_error = original_error
-    
+
     def __str__(self):
         msg = super().__str__()
         if self.stage:
@@ -29,12 +31,12 @@ class PipelineError(SmartGrocyException):
 
 class ValidationError(SmartGrocyException):
     """Exception raised during data validation"""
-    
+
     def __init__(self, message: str, field: str = None, value: Any = None):
         super().__init__(message)
         self.field = field
         self.value = value
-    
+
     def __str__(self):
         msg = super().__str__()
         if self.field:
@@ -51,7 +53,7 @@ class ConfigurationError(SmartGrocyException):
 
 class DataQualityError(SmartGrocyException):
     """Exception raised for data quality issues"""
-    
+
     def __init__(self, message: str, quality_score: float = None):
         super().__init__(message)
         self.quality_score = quality_score

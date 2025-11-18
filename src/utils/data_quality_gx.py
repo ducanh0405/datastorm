@@ -27,10 +27,11 @@ Date: 2025-11-15
 """
 
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional
-import pandas as pd
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
 
 try:
     import great_expectations as gx
@@ -57,45 +58,45 @@ GX_ROOT = PROJECT_ROOT / "great_expectations"
 class DataQualityValidator:
     """
     Wrapper class for Great Expectations validation in pipeline.
-    
+
     Provides simplified API for data quality checks with automatic
     context management and error handling.
     """
-    
-    def __init__(self, gx_root: Optional[Path] = None):
+
+    def __init__(self, gx_root: Path | None = None):
         """
         Initialize validator.
-        
+
         Args:
             gx_root: Path to GX root directory (default: auto-detect)
         """
         self.gx_root = gx_root or GX_ROOT
         self.context = None
         self._initialize_context()
-    
+
     def _initialize_context(self):
         """Initialize GX context if available"""
         if not GX_AVAILABLE or gx is None:
             logger.warning("Great Expectations not available. Validation disabled.")
             self.context = None
             return
-        
+
         if not self.gx_root.exists():
             logger.warning(f"GX not setup at {self.gx_root}. Run setup_great_expectations.py")
             self.context = None
             return
-        
+
         try:
             self.context = gx.get_context(context_root_dir=str(self.gx_root))
             logger.debug("GX context initialized")
         except Exception as e:
             logger.error(f"Failed to initialize GX context: {e}", exc_info=True)
             self.context = None
-    
+
     def is_available(self) -> bool:
         """Check if GX validation is available"""
         return GX_AVAILABLE and gx is not None and self.context is not None
-    
+
     def validate(
         self,
         df: pd.DataFrame,
@@ -103,17 +104,17 @@ class DataQualityValidator:
         asset_name: str = "validation_data",
         fail_on_error: bool = False,
         return_detailed: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validate dataframe against expectation suite.
-        
+
         Args:
             df: Dataframe to validate
             suite_name: Name of expectation suite
             asset_name: Name for this validation run
             fail_on_error: Raise exception if validation fails
             return_detailed: Include detailed failure information
-        
+
         Returns:
             Dictionary with validation results:
             {
@@ -133,16 +134,16 @@ class DataQualityValidator:
                 'timestamp': datetime.now().isoformat(),
                 'data_shape': df.shape
             }
-        
+
         logger.info(f"Running GX validation on {asset_name}: {df.shape}")
-        
+
         try:
             if not GX_AVAILABLE or gx is None:
                 raise ImportError("Great Expectations is not available")
-            
+
             if self.context is None:
                 raise RuntimeError("GX context is not initialized")
-            
+
             # Create batch request
             batch_request = {
                 "datasource_name": "master_feature_datasource",
@@ -153,26 +154,26 @@ class DataQualityValidator:
                     "default_identifier_name": f"{asset_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 }
             }
-            
+
             # Run checkpoint
             result = self.context.run_checkpoint(
                 checkpoint_name="master_feature_checkpoint",
                 batch_request=batch_request,
                 expectation_suite_name=suite_name
             )
-            
+
             # Parse results
             success = result["success"]
             run_results = result.get("run_results", {})
-            
+
             # Extract statistics
             statistics = {}
             failed_expectations = []
-            
-            for run_id, run_result in run_results.items():
+
+            for _run_id, run_result in run_results.items():
                 validation_result = run_result.get("validation_result", {})
                 statistics = validation_result.get("statistics", {})
-                
+
                 if return_detailed:
                     results = validation_result.get("results", [])
                     for exp_result in results:
@@ -182,7 +183,7 @@ class DataQualityValidator:
                                 "column": exp_result.get("expectation_config", {}).get("kwargs", {}).get("column"),
                                 "result": exp_result.get("result", {})
                             })
-            
+
             # Log results
             success_rate = statistics.get('success_percent', 0)
             if success:
@@ -190,7 +191,7 @@ class DataQualityValidator:
             else:
                 logger.warning(f"⚠️ Validation failed: {success_rate:.1f}% success rate")
                 logger.warning(f"   {statistics.get('unsuccessful_expectations', 0)} expectations failed")
-            
+
             # Prepare return dict
             validation_result = {
                 'success': success,
@@ -198,18 +199,18 @@ class DataQualityValidator:
                 'timestamp': datetime.now().isoformat(),
                 'data_shape': df.shape
             }
-            
+
             if return_detailed:
                 validation_result['failed_expectations'] = failed_expectations
-            
+
             # Raise exception if requested
             if fail_on_error and not success:
                 error_msg = f"Data quality validation failed: {success_rate:.1f}% success rate"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
-            
+
             return validation_result
-            
+
         except ImportError as e:
             error_msg = f"Great Expectations not available: {e}"
             logger.error(error_msg)
@@ -232,14 +233,14 @@ class DataQualityValidator:
                 'timestamp': datetime.now().isoformat(),
                 'data_shape': df.shape
             }
-    
-    def get_quality_score(self, validation_result: Dict[str, Any]) -> float:
+
+    def get_quality_score(self, validation_result: dict[str, Any]) -> float:
         """
         Calculate quality score from validation result.
-        
+
         Args:
             validation_result: Result from validate()
-        
+
         Returns:
             Quality score (0-100)
         """
@@ -254,18 +255,18 @@ def validate_dataframe(
     df: pd.DataFrame,
     asset_name: str = "data",
     fail_on_error: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Quick validation function for pipeline use.
-    
+
     Args:
         df: Dataframe to validate
         asset_name: Name for logging
         fail_on_error: Raise exception on failure
-    
+
     Returns:
         Validation result dictionary
-    
+
     Example:
         >>> result = validate_dataframe(master_df, "master_table", fail_on_error=True)
         >>> if result['success']:
@@ -293,17 +294,17 @@ def get_validator() -> DataQualityValidator:
 if __name__ == "__main__":
     # Test validation
     print("Testing Data Quality Validator...")
-    
+
     validator = DataQualityValidator()
     print(f"GX Available: {validator.is_available()}")
-    
+
     if validator.is_available():
         # Create test dataframe
         test_df = pd.DataFrame({
             'sales_lag_1': [1, 2, 3, 4, 5],
             'week_of_year': [1, 2, 3, 4, 5]
         })
-        
+
         print("\nRunning test validation...")
         result = validate_dataframe(test_df, "test_data", fail_on_error=False)
         print(f"Result: {result}")

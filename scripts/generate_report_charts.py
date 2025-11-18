@@ -73,15 +73,23 @@ def load_feature_importance() -> pd.DataFrame:
 
 def load_sample_predictions(n_samples: int = 500) -> pd.DataFrame:
     """Load a sample of predictions for visualization."""
-    predictions_path = PROJECT_ROOT / "reports" / "predictions_test_set.csv"
-    if not predictions_path.exists():
-        raise FileNotFoundError(f"Predictions file not found: {predictions_path}")
-    
-    # For large files, read only first n_samples rows to avoid memory issues
-    # In production, you might want to use random sampling, but for visualization
-    # reading consecutive rows is sufficient and faster
-    print(f"   Reading {n_samples} rows from predictions file...")
-    df = pd.read_csv(predictions_path, nrows=n_samples)
+    # Try parquet first (preferred format)
+    predictions_path = PROJECT_ROOT / "reports" / "predictions_test_set.parquet"
+
+    if predictions_path.exists():
+        print(f"   Reading {n_samples} rows from predictions parquet file...")
+        df = pd.read_parquet(predictions_path)
+        # Sample n_samples rows randomly for better representation
+        if len(df) > n_samples:
+            df = df.sample(n=n_samples, random_state=42).reset_index(drop=True)
+    else:
+        # Fallback to CSV
+        predictions_path = PROJECT_ROOT / "reports" / "predictions_test_set.csv"
+        if not predictions_path.exists():
+            raise FileNotFoundError(f"Predictions file not found: {predictions_path}")
+        print(f"   Reading {n_samples} rows from predictions CSV file...")
+        df = pd.read_csv(predictions_path, nrows=n_samples)
+
     return df
 
 

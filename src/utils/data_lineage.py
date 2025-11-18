@@ -4,14 +4,14 @@ Data Lineage Tracking Module
 Tracks data flow through the pipeline for transparency and debugging.
 Provides lineage graphs and dependency tracking.
 """
-import logging
 import json
-import networkx as nx
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
-import pandas as pd
+from pathlib import Path
+from typing import Any
+
+import networkx as nx
 
 from src.config import PROJECT_ROOT
 
@@ -23,15 +23,15 @@ class DataArtifact:
     """Represents a data artifact in the pipeline."""
     name: str
     artifact_type: str  # 'raw_data', 'processed_data', 'model', 'feature_table', etc.
-    path: Optional[str] = None
-    shape: Optional[tuple] = None
-    schema: Optional[Dict[str, str]] = None
-    created_at: Optional[str] = None
-    created_by: Optional[str] = None
-    quality_score: Optional[float] = None
-    metadata: Optional[Dict[str, Any]] = None
+    path: str | None = None
+    shape: tuple | None = None
+    schema: dict[str, str] | None = None
+    created_at: str | None = None
+    created_by: str | None = None
+    quality_score: float | None = None
+    metadata: dict[str, Any] | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -40,16 +40,16 @@ class PipelineStep:
     """Represents a step in the pipeline."""
     step_name: str
     step_type: str  # 'load', 'transform', 'feature_engineering', 'train', 'predict'
-    inputs: List[str]  # Names of input artifacts
-    outputs: List[str]  # Names of output artifacts
-    parameters: Optional[Dict[str, Any]] = None
-    execution_time: Optional[float] = None
-    status: Optional[str] = None  # 'success', 'failed', 'running'
-    error_message: Optional[str] = None
-    executed_at: Optional[str] = None
-    executed_by: Optional[str] = None
+    inputs: list[str]  # Names of input artifacts
+    outputs: list[str]  # Names of output artifacts
+    parameters: dict[str, Any] | None = None
+    execution_time: float | None = None
+    status: str | None = None  # 'success', 'failed', 'running'
+    error_message: str | None = None
+    executed_at: str | None = None
+    executed_by: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -58,7 +58,7 @@ class DataLineageTracker:
     Tracks data lineage through the entire pipeline.
     """
 
-    def __init__(self, lineage_dir: Optional[Path] = None):
+    def __init__(self, lineage_dir: Path | None = None):
         """
         Initialize lineage tracker.
 
@@ -69,8 +69,8 @@ class DataLineageTracker:
         self.lineage_dir.mkdir(exist_ok=True)
 
         # In-memory storage
-        self.artifacts: Dict[str, DataArtifact] = {}
-        self.steps: List[PipelineStep] = []
+        self.artifacts: dict[str, DataArtifact] = {}
+        self.steps: list[PipelineStep] = []
         self.lineage_graph = nx.DiGraph()
 
         # Load existing lineage if available
@@ -130,7 +130,7 @@ class DataLineageTracker:
 
         logger.debug(f"Recorded step: {step.step_name}")
 
-    def get_artifact_lineage(self, artifact_name: str) -> Dict[str, Any]:
+    def get_artifact_lineage(self, artifact_name: str) -> dict[str, Any]:
         """
         Get the lineage information for an artifact.
 
@@ -173,7 +173,7 @@ class DataLineageTracker:
 
         return lineage
 
-    def get_step_lineage(self, step_index: int) -> Dict[str, Any]:
+    def get_step_lineage(self, step_index: int) -> dict[str, Any]:
         """
         Get lineage information for a pipeline step.
 
@@ -210,7 +210,7 @@ class DataLineageTracker:
 
         return lineage
 
-    def generate_lineage_report(self) -> Dict[str, Any]:
+    def generate_lineage_report(self) -> dict[str, Any]:
         """
         Generate a comprehensive lineage report.
 
@@ -251,7 +251,7 @@ class DataLineageTracker:
 
         return report
 
-    def export_lineage_graph(self, output_path: Optional[Path] = None) -> str:
+    def export_lineage_graph(self, output_path: Path | None = None) -> str:
         """
         Export lineage graph to GraphML format.
 
@@ -272,7 +272,7 @@ class DataLineageTracker:
             logger.error(f"Failed to export lineage graph: {e}")
             return ""
 
-    def find_data_dependencies(self, artifact_name: str) -> List[str]:
+    def find_data_dependencies(self, artifact_name: str) -> list[str]:
         """
         Find all data dependencies for an artifact.
 
@@ -299,7 +299,7 @@ class DataLineageTracker:
 
         return list(dependencies)
 
-    def detect_lineage_breaks(self) -> List[str]:
+    def detect_lineage_breaks(self) -> list[str]:
         """
         Detect breaks in the data lineage.
 
@@ -335,11 +335,11 @@ class DataLineageTracker:
         try:
             lineage_file = self.lineage_dir / 'current_lineage.json'
             if lineage_file.exists():
-                with open(lineage_file, 'r') as f:
+                with open(lineage_file) as f:
                     data = json.load(f)
 
                 # Restore artifacts
-                for name, artifact_data in data.get('artifacts', {}).items():
+                for _name, artifact_data in data.get('artifacts', {}).items():
                     artifact = DataArtifact(**artifact_data)
                     self.register_artifact(artifact)
 
@@ -371,7 +371,7 @@ class DataLineageTracker:
         except Exception as e:
             logger.error(f"Failed to save lineage: {e}")
 
-    def get_lineage_stats(self) -> Dict[str, Any]:
+    def get_lineage_stats(self) -> dict[str, Any]:
         """
         Get lineage statistics.
 

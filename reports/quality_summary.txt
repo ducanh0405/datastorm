@@ -14,9 +14,9 @@ MAPE (Q50): ⚠️ Not calculated (values too small/zero)
 
 💼 BUSINESS IMPACT METRICS
 ----------------------------------------------------------------------
-Spoilage Rate Reduction: 38.33%
-Stockout Rate Reduction: 38.33%
-Profit Margin Increase: 25.55%
+Spoilage Rate Reduction: 38.48% (6.8% → 4.18%)
+Stockout Rate Reduction: 38.48% (5.2% → 3.19%)
+Profit Margin Increase: 25.85% (12.5% → 15.76%)
 Total Recommendations: 20
 Average Discount Rate: 8.48%
 Average Profit Margin: 36.65%

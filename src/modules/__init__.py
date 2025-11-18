@@ -23,8 +23,8 @@ __version__ = "1.0.0"
 
 # Import all modules for easy access
 try:
-    from src.modules.inventory_optimization import InventoryOptimizer
     from src.modules.dynamic_pricing import DynamicPricingEngine
+    from src.modules.inventory_optimization import InventoryOptimizer
     from src.modules.llm_insights import LLMInsightGenerator
 except ImportError as e:
     # Gracefully handle import errors (e.g., missing dependencies)
@@ -33,6 +33,6 @@ except ImportError as e:
 
 __all__ = [
     "InventoryOptimizer",
-    "DynamicPricingEngine", 
+    "DynamicPricingEngine",
     "LLMInsightGenerator"
 ]

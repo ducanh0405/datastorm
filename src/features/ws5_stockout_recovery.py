@@ -16,14 +16,13 @@ DEPENDENCIES:
 """
 
 import logging
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 # Import centralized config
 try:
-    from src.config import setup_logging, get_dataset_config
+    from src.config import get_dataset_config, setup_logging
 
     setup_logging()
     logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ except ImportError:  # pragma: no cover - fallback for standalone usage
         }
 
 
-def recover_latent_demand(df: pd.DataFrame, dataset_config: Optional[dict] = None) -> pd.DataFrame:
+def recover_latent_demand(df: pd.DataFrame, dataset_config: dict | None = None) -> pd.DataFrame:
     """
     Recover latent demand during stockout periods.
 
@@ -113,7 +112,7 @@ def recover_latent_demand(df: pd.DataFrame, dataset_config: Optional[dict] = Non
         if groups_processed % 100 == 0:
             logger.info(f"WS5: Processed {groups_processed} product-store groups...")
 
-    logger.info(f"WS5: Latent demand recovery complete")
+    logger.info("WS5: Latent demand recovery complete")
     logger.info(f"WS5: Processed {groups_processed} product-store groups")
     logger.info(f"WS5: Total latent demand estimated: {total_latent_demand:.2f}")
 
@@ -126,7 +125,7 @@ def _estimate_latent_demand_at_point(
     *,
     target_col: str,
     stockout_col: str,
-    hour_col: Optional[str] = None,
+    hour_col: str | None = None,
 ) -> float:
     """
     Estimate latent demand for a single stockout point using multiple strategies.
@@ -167,7 +166,7 @@ def _estimate_latent_demand_at_point(
     return 0.1
 
 
-def add_stockout_features(df: pd.DataFrame, dataset_config: Optional[dict] = None) -> pd.DataFrame:
+def add_stockout_features(df: pd.DataFrame, dataset_config: dict | None = None) -> pd.DataFrame:
     """
     Add stockout context features for better modeling.
     """

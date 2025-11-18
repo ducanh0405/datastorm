@@ -4,13 +4,13 @@ Data Quality Monitoring Module
 Comprehensive data quality monitoring using Great Expectations and custom validations.
 Provides statistical profiling, drift detection, and quality dashboards.
 """
-import logging
 import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-import pandas as pd
+import logging
+from datetime import datetime
+from typing import Any
+
 import numpy as np
+import pandas as pd
 
 try:
     import great_expectations as ge
@@ -28,8 +28,8 @@ except ImportError as e:
 
 try:
     from evidently import ColumnMapping
-    from evidently.report import Report
     from evidently.metrics import DataDriftTable, DatasetDriftMetric
+    from evidently.report import Report
     HAS_EVIDENTLY = True
 except ImportError:
     HAS_EVIDENTLY = False
@@ -70,7 +70,7 @@ class DataQualityMonitor:
             logger.warning("Great Expectations not available. Skipping GX setup.")
             self.gx_context = None
             return
-        
+
         try:
             gx_dir = PROJECT_ROOT / 'great_expectations'
             gx_dir.mkdir(exist_ok=True)
@@ -89,7 +89,7 @@ class DataQualityMonitor:
             logger.error(f"Great Expectations setup failed: {e}", exc_info=True)
             self.gx_context = None
 
-    def create_expectation_suite(self, df: pd.DataFrame, dataset_name: str) -> Optional[ExpectationSuite]:
+    def create_expectation_suite(self, df: pd.DataFrame, dataset_name: str) -> ExpectationSuite | None:
         """
         Create comprehensive expectation suite for a dataset.
 
@@ -103,7 +103,7 @@ class DataQualityMonitor:
         if not HAS_GREAT_EXPECTATIONS or ExpectationSuite is None:
             logger.warning("Great Expectations not available. Cannot create expectation suite.")
             return None
-        
+
         suite = ExpectationSuite(f"{dataset_name}_suite")
 
         # Basic expectations
@@ -177,7 +177,7 @@ class DataQualityMonitor:
 
         return suite
 
-    def validate_dataframe(self, df: pd.DataFrame, dataset_name: str) -> Dict[str, Any]:
+    def validate_dataframe(self, df: pd.DataFrame, dataset_name: str) -> dict[str, Any]:
         """
         Validate dataframe using Great Expectations.
 
@@ -197,7 +197,7 @@ class DataQualityMonitor:
 
             if not HAS_GREAT_EXPECTATIONS or ge is None:
                 raise ImportError("Great Expectations is not available")
-            
+
             # Create validator
             batch = ge.Batch(data=df, name=f"{dataset_name}_batch")
             validator = self.gx_context.get_validator(
@@ -276,7 +276,7 @@ class DataQualityMonitor:
 
         logger.info(f"Baseline profile created for {dataset_name}")
 
-    def detect_drift(self, df: pd.DataFrame, dataset_name: str) -> List[str]:
+    def detect_drift(self, df: pd.DataFrame, dataset_name: str) -> list[str]:
         """
         Detect data drift compared to baseline.
 
@@ -323,7 +323,7 @@ class DataQualityMonitor:
 
         return alerts
 
-    def store_validation_results(self, dataset_name: str, validation_results: Dict[str, Any]):
+    def store_validation_results(self, dataset_name: str, validation_results: dict[str, Any]):
         """
         Store validation results for historical tracking.
 
@@ -347,7 +347,7 @@ class DataQualityMonitor:
         if len(self.quality_history[dataset_name]) > 100:
             self.quality_history[dataset_name] = self.quality_history[dataset_name][-100:]
 
-    def check_data_drift(self) -> List[str]:
+    def check_data_drift(self) -> list[str]:
         """
         Check for data drift across all monitored datasets.
 
@@ -419,7 +419,7 @@ class DataQualityMonitor:
         except Exception as e:
             logger.error(f"Dashboard generation failed: {e}")
 
-    def get_quality_metrics(self, dataset_name: str) -> Dict[str, Any]:
+    def get_quality_metrics(self, dataset_name: str) -> dict[str, Any]:
         """
         Get quality metrics for a dataset.
 

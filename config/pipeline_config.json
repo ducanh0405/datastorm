@@ -9,7 +9,18 @@
     "enable_great_expectations": true,
     "enable_drift_detection": true,
     "quality_check_frequency": "per_stage",
-    "baseline_update_frequency": "weekly"
+    "baseline_update_frequency": "quarterly"
+  },
+  "baseline": {
+    "business_metrics": {
+      "spoilage_rate_pct": 6.8,
+      "stockout_rate_pct": 5.2,
+      "profit_margin_pct": 12.5
+    },
+    "last_updated": "2024-Q4",
+    "source": "Vietnam Retail Association 2024 Report & Statista 2024",
+    "auto_update": true,
+    "industry_validation": true
   },
   "alerting": {
     "enable_email_alerts": false,

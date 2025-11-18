@@ -12,9 +12,10 @@ Script để tạo tất cả các charts cần thiết cho báo cáo dự án S
    - Chứng minh model tốt
 
 2. **Chart 2: Business Impact KPI Comparison** (`chart2_business_impact.png`)
-   - Spoilage Rate: 8.2% → 5.1% (38.3% improvement)
-   - Stockout Rate: 7.5% → 4.6% (38.3% improvement)
-   - Chứng minh business value
+   - Spoilage Rate: 6.8% → 4.18% (38.48% improvement)
+   - Stockout Rate: 5.2% → 3.19% (38.48% improvement)
+   - Profit Margin: 12.5% → 15.76% (25.85% improvement)
+   - Chứng minh business value với baseline 2024
 
 3. **Chart 3: Forecast Quality** (`chart3_forecast_quality.png`)
    - Prediction intervals (Q05-Q95)

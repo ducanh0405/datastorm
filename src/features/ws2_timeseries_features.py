@@ -30,7 +30,6 @@ MAIN FUNCTIONS:
 import logging
 import os
 import time
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -55,7 +54,7 @@ except ImportError:
 
 # Import centralized config
 try:
-    from src.config import setup_logging, PERFORMANCE_CONFIG, get_dataset_config
+    from src.config import PERFORMANCE_CONFIG, get_dataset_config, setup_logging
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError:
@@ -378,7 +377,7 @@ def create_rolling_features(
         else:
             logger.warning("SKIP: Cannot auto-detect groupby columns for rolling features")
             return df_out
-    
+
     # Auto-detect time column if not provided
     if time_col is None:
         for col in ['hour_timestamp', 'WEEK_NO', 'week_no', 'time', 'TIME']:
@@ -457,7 +456,7 @@ def create_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     # Auto-detect time column if config column not found (for backward compatibility)
     if time_col not in df.columns:
         # Try common time column names (case-insensitive)
-        possible_time_cols = ['WEEK_NO', 'week_no', 'WEEK', 'week', 'TIME', 'time', 
+        possible_time_cols = ['WEEK_NO', 'week_no', 'WEEK', 'week', 'TIME', 'time',
                              'hour_timestamp', 'HOUR_TIMESTAMP', 'DATE', 'date']
         for col in possible_time_cols:
             if col in df.columns:
@@ -624,12 +623,12 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
                 target_col = 'sales_quantity' if 'sales_quantity' in master_df.columns else 'SALES_VALUE'
             else:
                 target_col = 'SALES_VALUE'
-            
+
             if target_col in master_df.columns:
                 # Create base lag if not exists (use first lag period)
                 base_lag = config['lag_periods'][0] if config['lag_periods'] else 1
-                lag_col = f'{target_col.lower()}_lag_{base_lag}'
-                
+                f'{target_col.lower()}_lag_{base_lag}'
+
                 # Create rolling features on lagged data
                 groupby_cols = config['groupby_keys'][:2]  # product_id, store_id
                 time_col = config['time_column']
@@ -653,8 +652,8 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
         # LỚP 3: Chốt chặn cuối - Fill NaN cho tất cả time-series features
         logger.info("WS2-Config: Final safeguard - Filling NaNs in time-series features...")
         numeric_cols = master_df.select_dtypes(include=[np.number]).columns
-        ts_feature_cols = [col for col in numeric_cols if any(keyword in col.lower() for keyword in 
-                                                              ['lag', 'rolling', 'trend', 'seasonal', 'momentum', 
+        ts_feature_cols = [col for col in numeric_cols if any(keyword in col.lower() for keyword in
+                                                              ['lag', 'rolling', 'trend', 'seasonal', 'momentum',
                                                                'volatility', 'wow', 'autocorr', 'entropy', 'hurst',
                                                                'nonlinearity', 'sin', 'cos', 'hour', 'dow'])]
         if ts_feature_cols:
@@ -688,24 +687,24 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
     required_cols = config['required_columns']
     missing = []
     column_mapping = {}  # Map config column names to actual column names
-    
+
     for req_col in required_cols:
         actual_col = find_column(master_df.columns, req_col)
         if actual_col is None:
             missing.append(req_col)
         else:
             column_mapping[req_col] = actual_col
-    
+
     # If all required columns are missing, try to auto-detect common patterns
     if len(missing) == len(required_cols):
         logger.warning(f"WS2: Config columns not found: {required_cols}")
         logger.info("WS2: Attempting auto-detection of columns...")
-        
+
         # Try to find common column patterns
         time_col = find_column(master_df.columns, config['time_column']) or find_column(master_df.columns, 'WEEK_NO') or find_column(master_df.columns, 'week_no')
         product_col = find_column(master_df.columns, 'product_id') or find_column(master_df.columns, 'PRODUCT_ID')
         store_col = find_column(master_df.columns, 'store_id') or find_column(master_df.columns, 'STORE_ID')
-        
+
         if time_col and product_col and store_col:
             logger.info(f"WS2: Auto-detected columns: time={time_col}, product={product_col}, store={store_col}")
             # Continue with auto-detected columns
@@ -714,20 +713,20 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
             return master_df
     elif missing:
         logger.warning(f"WS2: Some config columns not found: {missing}, but continuing with available columns...")
-    
+
     # Use column mapping or fallback to config
-    time_col = column_mapping.get(config['time_column'], 
-                                   find_column(master_df.columns, config['time_column']) or 
-                                   find_column(master_df.columns, 'WEEK_NO') or 
+    time_col = column_mapping.get(config['time_column'],
+                                   find_column(master_df.columns, config['time_column']) or
+                                   find_column(master_df.columns, 'WEEK_NO') or
                                    config['time_column'])
-    
+
     # Auto-detect temporal_unit from time column name if needed
     temporal_unit = config['temporal_unit']
     if time_col and 'WEEK' in time_col.upper():
         temporal_unit = 'week'
     elif time_col and ('HOUR' in time_col.upper() or 'TIME' in time_col.upper()):
         temporal_unit = 'hour'
-    
+
     # Map groupby_keys to actual column names
     groupby_keys_config = config['groupby_keys']
     groupby_keys = []
@@ -744,11 +743,11 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
                 groupby_keys.append(found)
             else:
                 logger.warning(f"WS2: Cannot find groupby key '{key}', skipping...")
-    
+
     if len(groupby_keys) < 2:
         logger.error(f"SKIP: WS2 - Cannot find enough groupby keys. Found: {groupby_keys}")
         return master_df
-    
+
     is_sorted = master_df.groupby(groupby_keys[:2])[time_col].apply(
         lambda x: x.is_monotonic_increasing
     ).all()
@@ -831,8 +830,8 @@ def add_lag_rolling_features(master_df: pd.DataFrame, use_config: bool = False, 
     logger.info("WS2: Final safeguard - Filling NaNs in time-series features...")
     numeric_cols = master_df.select_dtypes(include=[np.number]).columns
     # Chỉ fill các columns là time-series features (có chứa 'lag', 'rolling', 'trend', 'seasonal', 'momentum', 'volatility', 'wow', 'autocorr', 'entropy', 'hurst')
-    ts_feature_cols = [col for col in numeric_cols if any(keyword in col.lower() for keyword in 
-                                                          ['lag', 'rolling', 'trend', 'seasonal', 'momentum', 
+    ts_feature_cols = [col for col in numeric_cols if any(keyword in col.lower() for keyword in
+                                                          ['lag', 'rolling', 'trend', 'seasonal', 'momentum',
                                                            'volatility', 'wow', 'autocorr', 'entropy', 'hurst',
                                                            'nonlinearity', 'sin', 'cos'])]
     if ts_feature_cols:
@@ -891,7 +890,7 @@ def add_seasonal_decomposition_features(
     # Process each group separately (with optional parallel processing)
     group_cols = ['PRODUCT_ID', 'STORE_ID']
     n_jobs = PERFORMANCE_CONFIG.get('parallel_threads', 4) if HAS_PARALLEL else 1
-    
+
     # Use parallel processing if available
     if HAS_PARALLEL and n_jobs > 1:
         logger.info(f"WS2: Using parallel processing for seasonal decomposition ({n_jobs} threads)")
@@ -914,19 +913,19 @@ def add_seasonal_decomposition_features(
         except Exception as e:
             logger.warning(f"WS2: Parallel processing failed, falling back to sequential: {e}")
             n_jobs = 1
-    
+
     # Fallback to sequential processing
     if not HAS_PARALLEL or n_jobs == 1:
         processed_groups = 0
         skipped_groups = 0
-        
+
         for group_keys, group_df in df_result.groupby(group_cols):
             series_length = len(group_df)
-            
+
             if series_length < min_series_length:
                 skipped_groups += 1
                 continue
-            
+
             try:
                 y = group_df[target_col].values
                 decomposition = seasonal_decompose(
@@ -935,18 +934,18 @@ def add_seasonal_decomposition_features(
                     period=seasonal_period,
                     extrapolate_trend='freq'
                 )
-                
+
                 df_result.loc[group_df.index, trend_col] = decomposition.trend
                 df_result.loc[group_df.index, seasonal_col] = decomposition.seasonal
                 df_result.loc[group_df.index, residual_col] = decomposition.resid
-                
+
                 processed_groups += 1
-                
+
             except Exception as e:
                 logger.debug(f"WS2: Failed to decompose group {group_keys}: {e}")
                 skipped_groups += 1
                 continue
-        
+
         logger.info(f"WS2: Seasonal decomposition complete - Processed: {processed_groups}, Skipped: {skipped_groups}")
 
     # Fill NaN values with 0 for missing trend/seasonal at edges
@@ -1038,19 +1037,19 @@ def _process_group_advanced_features(
     group_df: pd.DataFrame,
     target_col: str = 'SALES_VALUE',
     min_series_length: int = 12,
-    new_cols: List[str] = None
+    new_cols: list[str] = None
 ) -> pd.DataFrame:
     """
     Process advanced time-series features for a single group.
-    
+
     This is a helper function designed to be used with parallel_groupby_apply.
-    
+
     Args:
         group_df: DataFrame for a single (PRODUCT_ID, STORE_ID) group
         target_col: Column to analyze
         min_series_length: Minimum series length for advanced features
         new_cols: List of new column names to create
-    
+
     Returns:
         DataFrame with advanced features added for this group
     """
@@ -1063,22 +1062,22 @@ def _process_group_advanced_features(
             f'{target_col.lower()}_hurst',
             f'{target_col.lower()}_nonlinearity'
         ]
-    
+
     # Initialize columns
     group_result = group_df.copy()
     for col in new_cols:
         if col not in group_result.columns:
             group_result[col] = np.nan
-    
+
     series_length = len(group_result)
-    
+
     # Skip if series too short
     if series_length < min_series_length:
         # Fill with zeros for short series
         for col in new_cols:
             group_result[col] = 0
         return group_result
-    
+
     try:
         # Extract time series values
         if target_col not in group_result.columns:
@@ -1086,28 +1085,28 @@ def _process_group_advanced_features(
             for col in new_cols:
                 group_result[col] = 0
             return group_result
-        
+
         y = group_result[target_col].values
-        
+
         # Calculate features for this group
         features = _calculate_advanced_features(y)
-        
+
         # Store features for all rows in this group
         for col, value in features.items():
             if col in new_cols:
                 group_result[col] = value
-        
+
         # Fill any missing columns with 0
         for col in new_cols:
             if pd.isna(group_result[col]).all():
                 group_result[col] = 0
-                
+
     except Exception as e:
         logger.debug(f"WS2: Failed to calculate advanced features for group: {e}")
         # Fill with zeros on error
         for col in new_cols:
             group_result[col] = 0
-    
+
     return group_result
 
 
@@ -1157,11 +1156,11 @@ def add_advanced_timeseries_features(
     # Get parallel processing config
     group_cols = ['PRODUCT_ID', 'STORE_ID']
     n_jobs = PERFORMANCE_CONFIG.get('parallel_threads', 4) if use_parallel and HAS_PARALLEL else 1
-    
+
     # Use parallel processing if available and enabled
     if use_parallel and HAS_PARALLEL and n_jobs > 1:
         logger.info(f"WS2: Using parallel processing with {n_jobs} threads")
-        
+
         try:
             df_result = parallel_groupby_apply(
                 df_result,
@@ -1173,41 +1172,41 @@ def add_advanced_timeseries_features(
                 min_series_length=min_series_length,
                 new_cols=new_cols
             )
-            
+
             # Count processed/skipped groups
             n_groups = len(df_result.groupby(group_cols))
-            processed = (df_result[new_cols[0]] != 0).sum()  # Approximate count
+            (df_result[new_cols[0]] != 0).sum()  # Approximate count
             logger.info(f"WS2: Parallel processing complete - {n_groups:,} groups processed")
-            
+
         except Exception as e:
             logger.warning(f"WS2: Parallel processing failed, falling back to sequential: {e}")
             use_parallel = False
-    
+
     # Fallback to sequential processing
     if not use_parallel or not HAS_PARALLEL or n_jobs == 1:
         logger.info("WS2: Using sequential processing")
         processed_groups = 0
         skipped_groups = 0
-        
+
         for group_keys, group_df in df_result.groupby(group_cols):
             series_length = len(group_df)
-            
+
             if series_length < min_series_length:
                 skipped_groups += 1
                 # Fill with zeros
                 for col in new_cols:
                     df_result.loc[group_df.index, col] = 0
                 continue
-            
+
             try:
                 y = group_df[target_col].values
                 features = _calculate_advanced_features(y)
-                
+
                 for col, value in features.items():
                     df_result.loc[group_df.index, col] = value
-                
+
                 processed_groups += 1
-                
+
             except Exception as e:
                 logger.debug(f"WS2: Failed to calculate advanced features for group {group_keys}: {e}")
                 skipped_groups += 1
@@ -1215,7 +1214,7 @@ def add_advanced_timeseries_features(
                 for col in new_cols:
                     df_result.loc[group_df.index, col] = 0
                 continue
-        
+
         logger.info(f"WS2: Sequential processing complete - Processed: {processed_groups}, Skipped: {skipped_groups}")
 
     # Fill NaN values (shouldn't be needed, but safety check)
@@ -1342,4 +1341,5 @@ def _calculate_nonlinearity(y: np.ndarray) -> float:
 add_timeseries_features = add_lag_rolling_features
 
 # New config-driven aliases
-add_timeseries_features_config = lambda df, config=None: add_lag_rolling_features(df, use_config=True, dataset_config=config)
+def add_timeseries_features_config(df, config=None):
+    return add_lag_rolling_features(df, use_config=True, dataset_config=config)

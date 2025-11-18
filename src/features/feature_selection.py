@@ -10,10 +10,11 @@ Functions:
 """
 
 import logging
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import List, Optional, Dict, Any
-from pathlib import Path
 
 # Optional imports for ML models
 try:
@@ -35,11 +36,11 @@ except ImportError:
 def select_important_features(
     df: pd.DataFrame,
     target_col: str = 'SALES_VALUE',
-    features: Optional[List[str]] = None,
+    features: list[str] | None = None,
     importance_threshold: float = 0.01,
     method: str = 'lightgbm',
-    max_features: Optional[int] = None
-) -> List[str]:
+    max_features: int | None = None
+) -> list[str]:
     """
     Select important features based on model feature importance.
 
@@ -109,10 +110,10 @@ def select_important_features(
 
 def remove_correlated_features(
     df: pd.DataFrame,
-    features: List[str],
+    features: list[str],
     correlation_threshold: float = 0.95,
     method: str = 'spearman'
-) -> List[str]:
+) -> list[str]:
     """
     Remove highly correlated features to reduce multicollinearity.
 
@@ -164,10 +165,10 @@ def get_optimal_features(
     target_col: str = 'SALES_VALUE',
     importance_threshold: float = 0.005,
     correlation_threshold: float = 0.95,
-    max_features: Optional[int] = None,
+    max_features: int | None = None,
     save_report: bool = True,
-    output_path: Optional[Path] = None
-) -> Dict[str, Any]:
+    output_path: Path | None = None
+) -> dict[str, Any]:
     """
     Complete feature selection pipeline: importance + correlation filtering.
 
@@ -237,7 +238,7 @@ def get_optimal_features(
     return result
 
 
-def _calculate_lgb_importance(X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
+def _calculate_lgb_importance(X: pd.DataFrame, y: pd.Series) -> dict[str, float]:
     """Calculate feature importance using LightGBM."""
     try:
         model = lgb.LGBMRegressor(
@@ -254,14 +255,14 @@ def _calculate_lgb_importance(X: pd.DataFrame, y: pd.Series) -> Dict[str, float]
         if max_importance > 0:
             importance = importance / max_importance
 
-        return dict(zip(X.columns, importance))
+        return dict(zip(X.columns, importance, strict=False))
 
     except Exception as e:
         logger.warning(f"LightGBM importance calculation failed: {e}")
         return {col: 0.0 for col in X.columns}
 
 
-def _calculate_rf_importance(X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
+def _calculate_rf_importance(X: pd.DataFrame, y: pd.Series) -> dict[str, float]:
     """Calculate feature importance using Random Forest."""
     try:
         from sklearn.ensemble import RandomForestRegressor
@@ -279,14 +280,14 @@ def _calculate_rf_importance(X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
         if max_importance > 0:
             importance = importance / max_importance
 
-        return dict(zip(X.columns, importance))
+        return dict(zip(X.columns, importance, strict=False))
 
     except Exception as e:
         logger.warning(f"Random Forest importance calculation failed: {e}")
         return {col: 0.0 for col in X.columns}
 
 
-def _calculate_correlation_importance(X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
+def _calculate_correlation_importance(X: pd.DataFrame, y: pd.Series) -> dict[str, float]:
     """Calculate feature importance using correlation with target."""
     importance_scores = {}
 

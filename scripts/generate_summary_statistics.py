@@ -20,6 +20,7 @@ import logging
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from typing import Dict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -28,6 +29,28 @@ from src.config import setup_logging
 setup_logging()
 
 logger = logging.getLogger(__name__)
+
+
+def to_serializable(obj):
+    """Convert numpy/pandas types to JSON serializable types."""
+    if isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
+
+def convert_dict_values_to_serializable(data):
+    """Recursively convert all values in a dict to JSON serializable types."""
+    if isinstance(data, dict):
+        return {k: convert_dict_values_to_serializable(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_dict_values_to_serializable(item) for item in data]
+    else:
+        return to_serializable(data)
 
 
 def calculate_model_summary() -> Dict:
@@ -123,11 +146,14 @@ def main():
     # Save
     output_file = Path('reports/summary_statistics.json')
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
+    # Convert to JSON serializable types
+    serializable_summaries = convert_dict_values_to_serializable(summaries)
+
     with open(output_file, 'w') as f:
-        json.dump(summaries, f, indent=2)
+        json.dump(serializable_summaries, f, indent=2)
     
-    logger.info(f"\n✓ Summary statistics saved: {output_file}")
+    logger.info(f"\n[SUCCESS] Summary statistics saved: {output_file}")
     
     # Print summary
     logger.info("\n" + "="*70)

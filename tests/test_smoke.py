@@ -25,7 +25,7 @@ def sample_data_dir():
     # Try poc_data first, fallback to 2_raw if poc_data doesn't have sample data
     poc_data_dir = PROJECT_ROOT / 'data' / 'poc_data'
     raw_data_dir = PROJECT_ROOT / 'data' / '2_raw'
-    
+
     # Check if poc_data has sample files, otherwise use 2_raw
     if poc_data_dir.exists() and list(poc_data_dir.glob('*.csv')):
         return poc_data_dir
@@ -44,7 +44,7 @@ def sample_freshretail_data(sample_data_dir):
         'freshretail_train.csv',
         'freshretail_train.parquet'
     ]
-    
+
     for filename in possible_files:
         data_path = sample_data_dir / filename
         if data_path.exists():
@@ -52,7 +52,7 @@ def sample_freshretail_data(sample_data_dir):
                 return pd.read_parquet(data_path)
             else:
                 return pd.read_csv(data_path)
-    
+
     pytest.skip(f"Sample data not found in {sample_data_dir}. Expected one of: {possible_files}")
 
 
@@ -98,10 +98,10 @@ def test_ws0_aggregation(sample_freshretail_data):
 def test_ws2_timeseries_features(sample_freshretail_data):
     """Test WS2: Leak-Safe Time-Series Features for FreshRetail (Config-Driven)."""
     from src.config import get_dataset_config
-    
+
     # First run WS0
     master_df = prepare_master_dataframe(sample_freshretail_data)
-    
+
     # Get dataset config to verify WS2 is config-driven
     try:
         config = get_dataset_config('freshretail')
@@ -109,31 +109,31 @@ def test_ws2_timeseries_features(sample_freshretail_data):
         assert 'rolling_windows' in config, "WS2 should be config-driven with rolling_windows"
     except (KeyError, ImportError):
         pytest.skip("Dataset config not available - WS2 config-driven test skipped")
-    
+
     # Test WS2 config-driven function
     try:
         from src.features.ws2_timeseries_features import add_timeseries_features_config
-        
+
         # Run WS2 with config-driven approach
         enriched_df = add_timeseries_features_config(master_df, config)
-        
+
         # Verify lag features exist (FreshRetail naming)
         expected_lag_cols = [f'sales_quantity_lag_{lag}' for lag in config.get('lag_periods', [1, 24, 48, 168])]
         found_lags = [col for col in expected_lag_cols[:2] if col in enriched_df.columns]  # Check first 2 lags
         assert len(found_lags) > 0, f"Missing expected lag features. Expected: {expected_lag_cols[:2]}, Found: {list(enriched_df.columns)}"
-        
+
         # Verify rolling features exist (if configured)
         if config.get('rolling_windows'):
             rolling_cols = [col for col in enriched_df.columns if 'rolling_mean' in col or 'rolling_std' in col]
             assert len(rolling_cols) > 0, "Should have rolling features"
-        
+
         # Verify calendar features (if intraday patterns enabled)
         if config.get('has_intraday_patterns', False):
             assert 'hour_of_day' in enriched_df.columns or 'hour_sin' in enriched_df.columns, \
                 "FreshRetail should have intraday pattern features"
             assert 'day_of_week' in enriched_df.columns or 'dow_sin' in enriched_df.columns, \
                 "Should have day of week features"
-        
+
             # Verify no leakage: lag_1 should be 0 for first period (NaN filled with 0 is correct behavior)
             # Note: WS2 fills NaN with 0 at the end, which is correct for time-series features
             # The important thing is that lag features don't use future data
@@ -146,7 +146,7 @@ def test_ws2_timeseries_features(sample_freshretail_data):
                         # Since WS2 fills NaN with 0, we check that values are 0 or NaN (not using future)
                         assert (first_periods[lag_col] == 0).all() or first_periods[lag_col].isna().all(), \
                             f"Lag feature {lag_col} should be 0 or NaN for first period (no future data leak)"
-        
+
     except ImportError as e:
         pytest.skip(f"WS2 config-driven function not available: {e}")
     except Exception as e:

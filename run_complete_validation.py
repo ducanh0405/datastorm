@@ -44,14 +44,14 @@ def run_command(cmd: list, description: str) -> bool:
         )
         
         if result.returncode == 0:
-            logger.info(f"✓ {description} - PASSED")
+            logger.info(f"[PASS] {description} - PASSED")
             return True
         else:
-            logger.error(f"✗ {description} - FAILED (exit code: {result.returncode})")
+            logger.error(f"[FAIL] {description} - FAILED (exit code: {result.returncode})")
             return False
             
     except Exception as e:
-        logger.error(f"✗ {description} - ERROR: {e}")
+        logger.error(f"[ERROR] {description} - ERROR: {e}")
         return False
 
 
@@ -115,7 +115,7 @@ def main():
     logger.info("#"*70 + "\n")
     
     for name, success in results:
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = "[PASS]" if success else "[FAIL]"
         logger.info(f"  {name:30s}: {status}")
     
     total = len(results)

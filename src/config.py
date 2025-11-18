@@ -3,10 +3,10 @@ Project Configuration (Phiên bản đầy đủ, modular)
 =================================================
 Quản lý config tập trung cho SmartGrocy.
 """
-import sys
 import logging
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # --- 1. PROJECT PATHS ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -49,14 +49,14 @@ DATASET_CONFIGS = {
         'target_column': 'sales_quantity',
         'groupby_keys': ['product_id', 'store_id', 'hour_timestamp'],
         'required_columns': ['product_id', 'store_id', 'hour_timestamp', 'sales_quantity'],
-        
+
         # --- Feature Workstream Toggles ---
         'has_relational': True,  # (product_info.csv)
         'has_stockout': True,    # (ws5)
         'has_weather': True,     # (ws6)
         'has_price_promo': False,  # (Không có causal_data)
         'has_behavior': False,   # (Không có clickstream)
-        
+
         # --- WS2 Config ---
         'lag_periods': [1, 24, 48, 168], # 1h, 1d, 2d, 1w
         'rolling_windows': [24, 168],
@@ -76,7 +76,7 @@ DATASET_CONFIGS = {
         'has_weather': False,    # (ws6)
         'has_price_promo': True,   # (ws4 - causal_data)
         'has_behavior': True,    # (ws3 - clickstream_log)
-        
+
         # --- WS2 Config ---
         'lag_periods': [1, 4, 8, 12],
         'rolling_windows': [4, 8, 12],
@@ -101,7 +101,7 @@ MEMORY_OPTIMIZATION = {
     'max_time_periods': None, # Giới hạn số time periods (None = không giới hạn)
     'use_chunking': True,     # Sử dụng chunking cho operations lớn
     'chunk_size': 100000,     # Kích thước chunk
-} 
+}
 
 def get_dataset_config(dataset_name=None):
     """Lấy config cho dataset đang hoạt động."""
@@ -121,7 +121,7 @@ ALL_FEATURES_CONFIG = {
         {'name': 'BRAND', 'type': 'cat'},
         {'name': 'MANUFACTURER', 'type': 'cat'},
     ],
-    
+
     # WS2: Time-Series (Base) - mostly numeric, some categorical
     'timeseries_base': [
         {'name': 'sales_lag_1', 'type': 'num'},
@@ -147,7 +147,7 @@ ALL_FEATURES_CONFIG = {
         {'name': 'week_sin', 'type': 'num'},
         {'name': 'week_cos', 'type': 'num'},
     ],
-    
+
     # WS2: Intraday Patterns (mix of categorical and numeric)
     'intraday_patterns': [
         {'name': 'hour_of_day', 'type': 'cat'},      # 0-23, categorical
@@ -171,7 +171,7 @@ ALL_FEATURES_CONFIG = {
         {'name': 'rate_view_to_buy', 'type': 'num'},
         {'name': 'days_since_last_action', 'type': 'num'},
     ],
-    
+
     # WS4: Price/Promo (mix)
     'price_promo': [
         {'name': 'base_price', 'type': 'num'},
@@ -182,7 +182,7 @@ ALL_FEATURES_CONFIG = {
         {'name': 'is_on_retail_promo', 'type': 'cat'},    # Binary flag
         {'name': 'is_on_coupon_promo', 'type': 'cat'},    # Binary flag
     ],
-    
+
     # WS5: Stockout (all numeric)
     'stockout': [
         {'name': 'latent_demand', 'type': 'num'},
@@ -192,7 +192,7 @@ ALL_FEATURES_CONFIG = {
         {'name': 'stockout_frequency', 'type': 'num'},
         {'name': 'stockout_severity', 'type': 'num'},
     ],
-    
+
     # WS6: Weather (mix)
     'weather': [
         {'name': 'temperature', 'type': 'num'},
@@ -210,13 +210,13 @@ ALL_FEATURES_CONFIG = {
 }
 
 # Helper function to extract features by type from ALL_FEATURES_CONFIG
-def get_features_by_type(feature_type: str = 'all') -> List[str]:
+def get_features_by_type(feature_type: str = 'all') -> list[str]:
     """
     Extract feature names from ALL_FEATURES_CONFIG.
-    
+
     Args:
         feature_type: 'all', 'num' (numeric), or 'cat' (categorical)
-        
+
     Returns:
         List of feature names
     """
@@ -265,7 +265,7 @@ LIGHTGBM_PARAMS = {
     'random_state': 42,
     'n_jobs': PERFORMANCE_CONFIG['parallel_threads'],
     'verbose': -1,
-    
+
     # Stability parameters (CRITICAL for reproducible and stable models)
     # Prevents "No further splits with positive gain, best gain: -inf" warnings
     # Ensures reproducible results across multiple runs
@@ -404,10 +404,10 @@ def get_model_config(quantile: float, model_type: str = 'lightgbm') -> dict[str,
     """Lấy config model cho 1 quantile và model type."""
     if model_type not in MODEL_CONFIGS:
         raise ValueError(f"Model type '{model_type}' not supported. Available: {list(MODEL_CONFIGS.keys())}")
-    
+
     model_config = MODEL_CONFIGS[model_type]
     config = model_config['params'].copy()
-    
+
     # Thêm quantile-specific config
     if model_config['quantile_support']:
         # LightGBM hỗ trợ quantile regression trực tiếp
@@ -416,7 +416,7 @@ def get_model_config(quantile: float, model_type: str = 'lightgbm') -> dict[str,
     else:
         # Các model khác sẽ dùng wrapper (QuantileRegressor từ sklearn)
         config['quantile'] = quantile
-    
+
     return config
 
 def get_data_directory() -> Path:
@@ -433,13 +433,12 @@ def ensure_directories() -> None:
 
 def setup_logging(level: str = None, log_to_file: bool = None) -> None:
     """Cài đặt logging tập trung."""
-    import logging
 
     level = level or LOGGING_CONFIG.get('level', 'INFO')  # pyright: ignore[reportUndefinedVariable]
     log_format = LOGGING_CONFIG.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')  # pyright: ignore[reportUndefinedVariable]
     log_to_file = log_to_file if log_to_file is not None else LOGGING_CONFIG.get('log_to_file', True)  # pyright: ignore[reportUndefinedVariable]
     numeric_level = getattr(logging, level.upper(), logging.INFO)
-    
+
     # Cấu hình root logger
     logging.basicConfig(level=numeric_level, format=log_format, handlers=[], force=True)
 
@@ -456,78 +455,78 @@ def setup_logging(level: str = None, log_to_file: bool = None) -> None:
         logging.getLogger().addHandler(file_handler)
 
 # --- 9. CONFIG VALIDATION ---
-def validate_dataset_config(config: Dict[str, Any]) -> List[str]:
+def validate_dataset_config(config: dict[str, Any]) -> list[str]:
     """
     Validate dataset configuration and return list of errors.
-    
+
     Args:
         config: Dataset configuration dictionary
-        
+
     Returns:
         List of error messages (empty if valid)
     """
     errors = []
-    
+
     # Required fields
     required_fields = ['name', 'temporal_unit', 'time_column', 'target_column', 'groupby_keys']
     for field in required_fields:
         if field not in config:
             errors.append(f"Missing required field: {field}")
-    
+
     # Validate temporal_unit
     if 'temporal_unit' in config:
         valid_units = ['hour', 'day', 'week', 'month']
         if config['temporal_unit'] not in valid_units:
             errors.append(f"Invalid temporal_unit: {config['temporal_unit']}. Must be one of: {valid_units}")
-    
+
     # Validate groupby_keys
     if 'groupby_keys' in config:
         if not isinstance(config['groupby_keys'], list) or len(config['groupby_keys']) < 2:
             errors.append("groupby_keys must be a list with at least 2 elements")
-    
+
     # Validate time_column exists in groupby_keys
     if 'time_column' in config and 'groupby_keys' in config:
         if config['time_column'] not in config['groupby_keys']:
             errors.append(f"time_column '{config['time_column']}' must be in groupby_keys")
-    
+
     # Validate lag_periods
     if 'lag_periods' in config:
         if not isinstance(config['lag_periods'], list) or len(config['lag_periods']) == 0:
             errors.append("lag_periods must be a non-empty list")
-        elif not all(isinstance(x, (int, float)) and x > 0 for x in config['lag_periods']):
+        elif not all(isinstance(x, int | float) and x > 0 for x in config['lag_periods']):
             errors.append("lag_periods must contain positive numbers")
-    
+
     # Validate rolling_windows
     if 'rolling_windows' in config:
         if not isinstance(config['rolling_windows'], list):
             errors.append("rolling_windows must be a list")
         elif not all(isinstance(x, int) and x > 0 for x in config['rolling_windows']):
             errors.append("rolling_windows must contain positive integers")
-    
+
     # Validate boolean flags
-    boolean_flags = ['has_relational', 'has_stockout', 'has_weather', 'has_price_promo', 
+    boolean_flags = ['has_relational', 'has_stockout', 'has_weather', 'has_price_promo',
                      'has_behavior', 'has_intraday_patterns']
     for flag in boolean_flags:
         if flag in config and not isinstance(config[flag], bool):
             errors.append(f"{flag} must be a boolean")
-    
+
     return errors
 
-def validate_training_config() -> List[str]:
+def validate_training_config() -> list[str]:
     """
     Validate training configuration.
-    
+
     Returns:
         List of error messages (empty if valid)
     """
     errors = []
-    
+
     # Validate quantiles
     if not isinstance(QUANTILES, list) or len(QUANTILES) == 0:
         errors.append("QUANTILES must be a non-empty list")
     elif not all(0 < q < 1 for q in QUANTILES):
         errors.append("All quantiles must be between 0 and 1")
-    
+
     # Validate model types
     if not isinstance(MODEL_TYPES, list) or len(MODEL_TYPES) == 0:
         errors.append("MODEL_TYPES must be a non-empty list")
@@ -535,49 +534,49 @@ def validate_training_config() -> List[str]:
         for model_type in MODEL_TYPES:
             if model_type not in MODEL_CONFIGS:
                 errors.append(f"Unknown model type: {model_type}. Available: {list(MODEL_CONFIGS.keys())}")
-    
+
     # Validate train_test_split
     if 'train_test_split' in TRAINING_CONFIG:
         split_config = TRAINING_CONFIG['train_test_split']
         if 'cutoff_percentile' in split_config:
             cutoff = split_config['cutoff_percentile']
-            if not isinstance(cutoff, (int, float)) or not (0 < cutoff < 1):
+            if not isinstance(cutoff, int | float) or not (0 < cutoff < 1):
                 errors.append("cutoff_percentile must be between 0 and 1")
-    
+
     return errors
 
-def validate_performance_config() -> List[str]:
+def validate_performance_config() -> list[str]:
     """
     Validate performance configuration.
-    
+
     Returns:
         List of error messages (empty if valid)
     """
     errors = []
-    
+
     # Validate memory_limit_gb
     if 'memory_limit_gb' in PERFORMANCE_CONFIG:
         mem_limit = PERFORMANCE_CONFIG['memory_limit_gb']
-        if not isinstance(mem_limit, (int, float)) or mem_limit <= 0:
+        if not isinstance(mem_limit, int | float) or mem_limit <= 0:
             errors.append("memory_limit_gb must be a positive number")
-    
+
     # Validate parallel_threads
     if 'parallel_threads' in PERFORMANCE_CONFIG:
         threads = PERFORMANCE_CONFIG['parallel_threads']
         if not isinstance(threads, int) or threads <= 0:
             errors.append("parallel_threads must be a positive integer")
-    
+
     return errors
 
-def validate_all_configs() -> Dict[str, List[str]]:
+def validate_all_configs() -> dict[str, list[str]]:
     """
     Validate all configurations.
-    
+
     Returns:
         Dictionary mapping config section names to lists of errors
     """
     all_errors = {}
-    
+
     # Validate active dataset config
     try:
         active_config = get_dataset_config()
@@ -586,23 +585,23 @@ def validate_all_configs() -> Dict[str, List[str]]:
             all_errors['dataset_config'] = dataset_errors
     except Exception as e:
         all_errors['dataset_config'] = [f"Error loading dataset config: {e}"]
-    
+
     # Validate training config
     training_errors = validate_training_config()
     if training_errors:
         all_errors['training_config'] = training_errors
-    
+
     # Validate performance config
     performance_errors = validate_performance_config()
     if performance_errors:
         all_errors['performance_config'] = performance_errors
-    
+
     return all_errors
 
 def assert_config_valid() -> None:
     """
     Assert that all configurations are valid. Raises ValueError if invalid.
-    
+
     Raises:
         ValueError: If any configuration is invalid
     """
@@ -611,4 +610,4 @@ def assert_config_valid() -> None:
         error_messages = []
         for section, section_errors in errors.items():
             error_messages.append(f"{section}: {', '.join(section_errors)}")
-        raise ValueError(f"Configuration validation failed:\n" + "\n".join(error_messages))
+        raise ValueError("Configuration validation failed:\n" + "\n".join(error_messages))

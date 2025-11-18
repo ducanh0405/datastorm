@@ -8,6 +8,8 @@
 - [Running Tests](guides/QUICK_START_VALIDATION.md#testing)
 
 ### Technical Documentation
+- **[Technical Report](../TECHNICAL_REPORT.md)** - Complete system overview (Auto-generated)
+- **[Report Generator](../scripts/generate_technical_report.py)** - Auto-update technical docs
 - [Complete Enhancements Guide](technical/ENHANCEMENTS_COMPLETE.md)
 - [Module 4 Improvements](technical/MODULE4_IMPROVEMENTS.md)
 - [CI/CD Fixes](technical/CI_CD_FIXES_APPLIED.md)

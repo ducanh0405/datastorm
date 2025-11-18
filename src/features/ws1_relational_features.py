@@ -67,7 +67,7 @@ def enrich_relational_features(
         for col in product_cols:
             if col in master_df.columns:
                 master_df[col] = master_df[col].fillna('Unknown')
-        logger.info(f"  ✓ Filled NaN in product categorical columns with 'Unknown'")
+        logger.info("  ✓ Filled NaN in product categorical columns with 'Unknown'")
 
         if matched_products == 0:
             logger.error("  CRITICAL ERROR: No products matched! WS1 relational features failed.")
@@ -93,15 +93,15 @@ def enrich_relational_features(
                 original_shape = master_df.shape
                 master_df = pd.merge(master_df, df_hh, on='household_key', how='left')
                 logging.info(f"  Merged household demographics: {original_shape} -> {master_df.shape}")
-                
+
                 # LỚP 2: Fill NaN cho household categorical columns sau join (luôn luôn)
-                hh_categorical_cols = ['AGE_DESC', 'MARITAL_STATUS_CODE', 'INCOME_DESC', 'HOMEOWNER_DESC', 
+                hh_categorical_cols = ['AGE_DESC', 'MARITAL_STATUS_CODE', 'INCOME_DESC', 'HOMEOWNER_DESC',
                                       'HH_COMP_DESC', 'HOUSEHOLD_SIZE_DESC', 'KID_CATEGORY_DESC']
                 for col in hh_categorical_cols:
                     if col in master_df.columns:
                         master_df[col] = master_df[col].fillna('Unknown')
-                logger.info(f"  ✓ Filled NaN in household categorical columns with 'Unknown'")
-                            
+                logger.info("  ✓ Filled NaN in household categorical columns with 'Unknown'")
+
             except pd.errors.MergeError as e:
                 logger.error(f"ERROR in WS1 household merge: {e}")
                 # Don't raise - continue without household data

@@ -6,8 +6,8 @@ Author: SmartGrocy Team
 """
 
 FORECAST_INSIGHT_PROMPT_V2 = """
-You are an expert retail demand analyst at SmartGrocy, specializing in e-grocery operations in Vietnam. 
-You have access to comprehensive data from three integrated business modules. Analyze all available information 
+You are an expert retail demand analyst at SmartGrocy, specializing in e-grocery operations in Vietnam.
+You have access to comprehensive data from three integrated business modules. Analyze all available information
 and provide holistic, actionable business insights.
 
 ## PRODUCT OVERVIEW
@@ -124,12 +124,12 @@ Explain WHY the forecast and recommendations are at these levels:
 ### 3. INTEGRATED BUSINESS IMPACT ASSESSMENT
 Analyze the combined implications:
 - **Inventory Impact**: What does the forecast mean for current stock levels? Is there a mismatch?
-- **Financial Impact**: 
+- **Financial Impact**:
   - Revenue potential (forecast × price)
   - Cost implications (holding costs, stockout costs, markdown costs)
   - Profit optimization opportunity
 - **Operational Impact**: What does this mean for ordering, warehousing, fulfillment?
-- **Risk Assessment**: 
+- **Risk Assessment**:
   - Stockout risk vs overstock risk (which is higher?)
   - Financial risk if no action taken
   - Market competitiveness risk

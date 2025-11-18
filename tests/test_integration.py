@@ -5,6 +5,7 @@ End-to-end tests for the complete pipeline workflow.
 """
 import sys
 from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -12,8 +13,8 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.pipelines._01_load_data import load_data
 from src.features.ws0_aggregation import prepare_master_dataframe
+from src.pipelines._01_load_data import load_data
 
 
 @pytest.fixture
@@ -22,7 +23,7 @@ def sample_data_dir():
     # Try poc_data first, fallback to 2_raw if poc_data doesn't have sample data
     poc_data_dir = PROJECT_ROOT / 'data' / 'poc_data'
     raw_data_dir = PROJECT_ROOT / 'data' / '2_raw'
-    
+
     # Check if poc_data has sample files, otherwise use 2_raw
     if poc_data_dir.exists() and list(poc_data_dir.glob('*.csv')):
         return poc_data_dir
@@ -41,7 +42,7 @@ def sample_freshretail_data(sample_data_dir):
         'freshretail_train.csv',
         'freshretail_train.parquet'
     ]
-    
+
     for filename in possible_files:
         data_path = sample_data_dir / filename
         if data_path.exists():
@@ -49,7 +50,7 @@ def sample_freshretail_data(sample_data_dir):
                 return pd.read_parquet(data_path)
             else:
                 return pd.read_csv(data_path)
-    
+
     pytest.skip(f"Sample data not found in {sample_data_dir}. Expected one of: {possible_files}")
 
 
@@ -101,7 +102,7 @@ class TestDataPipelineIntegration:
     def test_pipeline_data_consistency(self, sample_freshretail_data):
         """Test that data remains consistent through pipeline steps."""
         # Get original data stats
-        original_rows = len(sample_freshretail_data)
+        len(sample_freshretail_data)
         original_products = sample_freshretail_data['product_id'].nunique()
         original_stores = sample_freshretail_data['store_id'].nunique()
 

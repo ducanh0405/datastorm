@@ -1,12 +1,12 @@
+import argparse
+import logging
+import os
 import subprocess
 import sys
-import logging
-import argparse
-import os
-from pathlib import Path
 
 # Setup project path and logging
-from src.config import setup_project_path, setup_logging, PROJECT_ROOT
+from src.config import PROJECT_ROOT, setup_logging, setup_project_path
+
 setup_project_path()
 setup_logging()
 
@@ -16,7 +16,7 @@ PIPELINES_DIR = PROJECT_ROOT / 'src' / 'pipelines'
 
 def run_script(script_name, extra_args=None):
     """Utility function to run a pipeline script and check for errors.
-    
+
     Args:
         script_name: Name of the script to run
         extra_args: List of additional command-line arguments to pass
@@ -62,14 +62,14 @@ def main():
     Orchestrates the entire SmartGrocy project with optional memory optimizations.
     """
     parser = argparse.ArgumentParser(description='Run full SmartGrocy pipeline')
-    parser.add_argument('--full-data', action='store_true', 
+    parser.add_argument('--full-data', action='store_true',
                        help='Use full data from data/2_raw with memory optimizations (32GB RAM recommended)')
     args = parser.parse_args()
 
     logging.info("=" * 70)
     logging.info("STARTING ENTIRE PROJECT WORKFLOW")
     logging.info("=" * 70)
-    
+
     if args.full_data:
         logging.info("🚀 MEMORY OPTIMIZATION MODE ENABLED")
         logging.info("   - Force pandas (no Polars)")
@@ -78,7 +78,7 @@ def main():
         logging.info("   - Limited threads: 2 cores")
         logging.info("   - Data source: data/2_raw/")
         logging.info("=" * 70)
-        
+
         # Set environment variable for downstream scripts
         os.environ['DATA_SOURCE'] = 'full'
         os.environ['USE_PANDAS_ONLY'] = '1'

@@ -13,8 +13,8 @@ Usage:
     # Chạy với 10% sample (nhanh hơn, để test)
     python run_end_to_end.py --full-data --sample 0.1
     
-    # Chạy với v2 orchestrator (có GX validation)
-    python run_end_to_end.py --full-data --use-v2
+    # Chạy từng bước pipeline (step-by-step)
+    python run_end_to_end.py --full-data
     
     # Chỉ chạy ML pipeline (không chạy business modules)
     python run_end_to_end.py --full-data --ml-only
@@ -45,7 +45,7 @@ try:
     setup_logging()
     logger = logging.getLogger(__name__)
 except ImportError as e:
-    print(f"❌ Import error: {e}")
+    print(f"[ERROR] Import error: {e}")
     print("Please install required dependencies:")
     print("  pip install -r requirements.txt")
     sys.exit(1)
@@ -60,24 +60,24 @@ def print_banner(text: str, char: str = "="):
 
 def check_prerequisites():
     """Check if all prerequisites are met"""
-    logger.info("🔍 Checking prerequisites...")
+    logger.info("[CHECK] Checking prerequisites...")
     
     all_good = True
     
     # Check data directories
     from src.config import DATA_DIRS, ensure_directories
     ensure_directories()
-    logger.info("✓ Data directories: Ready")
+    logger.info("[OK] Data directories: Ready")
     
     # Check for training data
     raw_data_dir = DATA_DIRS['raw_data']
     if not raw_data_dir.exists() or not list(raw_data_dir.glob('*.parquet')):
-        logger.warning("⚠️ No training data found in data/2_raw/")
+        logger.warning("[WARNING] No training data found in data/2_raw/")
         logger.warning("   Pipeline may fail at data loading stage")
         all_good = False
     else:
         data_files = list(raw_data_dir.glob('*.parquet'))
-        logger.info(f"✓ Training data: {len(data_files)} file(s) found")
+        logger.info(f"[OK] Training data: {len(data_files)} file(s) found")
     
     # Check for required Python packages
     required_packages = ['pandas', 'numpy', 'lightgbm', 'sklearn']
@@ -89,76 +89,118 @@ def check_prerequisites():
             missing_packages.append(package)
     
     if missing_packages:
-        logger.warning(f"⚠️ Missing packages: {', '.join(missing_packages)}")
+        logger.warning(f"[WARNING] Missing packages: {', '.join(missing_packages)}")
         logger.warning("   Install with: pip install -r requirements.txt")
         all_good = False
     else:
-        logger.info("✓ Required packages: Installed")
+        logger.info("[OK] Required packages: Installed")
     
     return all_good
 
 
 def run_ml_pipeline(args):
-    """Run ML Pipeline (Module 1: Demand Forecasting)"""
-    print_banner("🚀 MODULE 1: ML PIPELINE (Demand Forecasting)")
-    
+    """Run ML Pipeline (Module 1: Demand Forecasting) step by step"""
+    print_banner("[PIPELINE] MODULE 1: ML PIPELINE (Demand Forecasting)")
+
     start_time = time.time()
-    
+
+    # Define pipeline steps
+    pipeline_steps = [
+        {
+            'name': 'Step 1: Load Data',
+            'command': [
+                sys.executable, '-c',
+                "from src.pipelines._01_load_data import load_data; from src.config import setup_project_path; setup_project_path(); load_data(); print('Step 1 [OK]')"
+            ]
+        },
+        {
+            'name': 'Step 2: Feature Engineering',
+            'command': [
+                sys.executable, '-c',
+                "from src.pipelines._02_feature_enrichment import main; from src.config import setup_project_path; setup_project_path(); main(); print('Step 2 [OK]')"
+            ]
+        },
+        {
+            'name': 'Step 3: Model Training',
+            'command': [
+                sys.executable, '-c',
+                "from src.pipelines._03_model_training import main; from src.config import setup_project_path; setup_project_path(); main(); print('Step 3 [OK]')"
+            ]
+        },
+        {
+            'name': 'Step 4: Prediction',
+            'command': [
+                sys.executable, '-c',
+                "from src.pipelines._05_prediction import main; from src.config import setup_project_path; setup_project_path(); main(); print('Step 4 [OK]')"
+            ]
+        },
+        {
+            'name': 'Step 5: Ensemble',
+            'command': [
+                sys.executable, '-c',
+                "from src.pipelines._06_ensemble import main; from src.config import setup_project_path; setup_project_path(); main(); print('Step 5 [OK]')"
+            ]
+        },
+        {
+            'name': 'Step 6: Dashboard',
+            'command': [
+                sys.executable, '-c',
+                "from src.pipelines._07_dashboard import main; from src.config import setup_project_path; setup_project_path(); main(); print('Step 6 [OK]')"
+            ]
+        }
+    ]
+
     try:
-        # Build command
-        cmd = [sys.executable, 'run_modern_pipeline_v2.py']
-        
-        if args.full_data:
-            cmd.append('--full-data')
-        
-        if args.sample < 1.0:
-            cmd.extend(['--sample', str(args.sample)])
-        
-        if args.use_v2:
-            cmd.append('--use-v2')
-        
-        if args.no_cache:
-            cmd.append('--no-cache')
-        
-        logger.info(f"Running command: {' '.join(cmd)}")
-        logger.info("=" * 70)
-        
-        # Run pipeline
-        result = subprocess.run(
-            cmd,
-            cwd=PROJECT_ROOT,
-            check=True,
-            capture_output=False  # Show output in real-time
-        )
-        
-        duration = time.time() - start_time
-        
-        if result.returncode == 0:
-            logger.info("\n" + "=" * 70)
-            logger.info("✅ ML PIPELINE COMPLETED SUCCESSFULLY")
-            logger.info(f"⏱️  Duration: {duration:.1f} seconds ({duration/60:.1f} minutes)")
-            logger.info("=" * 70)
-            
-            # Check if predictions file exists
-            predictions_path = Path('reports/predictions_test_set.csv')
-            if predictions_path.exists():
-                import pandas as pd
-                df = pd.read_csv(predictions_path)
-                logger.info(f"✓ Predictions generated: {len(df):,} records")
-                logger.info(f"  File: {predictions_path}")
+        step_start_time = time.time()
+
+        for i, step in enumerate(pipeline_steps, 1):
+            logger.info(f"\n{'='*70}")
+            logger.info(f"RUNNING {step['name']}")
+            logger.info(f"{'='*70}")
+
+            logger.info(f"Command: {' '.join(step['command'])}")
+
+            # Run the step
+            result = subprocess.run(
+                step['command'],
+                cwd=PROJECT_ROOT,
+                check=True,
+                capture_output=False  # Show output in real-time
+            )
+
+            if result.returncode == 0:
+                step_duration = time.time() - step_start_time
+                logger.info(f"[OK] {step['name']} completed in {step_duration:.1f}s")
+                step_start_time = time.time()  # Reset for next step
             else:
-                logger.warning(f"⚠️ Predictions file not found: {predictions_path}")
-            
-            return True
+                logger.error(f"[ERROR] {step['name']} failed with return code {result.returncode}")
+                return False
+
+        # All steps completed successfully
+        duration = time.time() - start_time
+
+        logger.info("\n" + "=" * 70)
+        logger.info("[PASS] ML PIPELINE COMPLETED SUCCESSFULLY")
+        logger.info(f"[TIME] Total Duration: {duration:.1f} seconds ({duration/60:.1f} minutes)")
+        logger.info("=" * 70)
+
+        # Check if predictions file exists
+        predictions_path = Path('reports/predictions_test_set.csv')
+        if predictions_path.exists():
+            import pandas as pd
+            df = pd.read_csv(predictions_path)
+            logger.info(f"[OK] Predictions generated: {len(df):,} records")
+            logger.info(f"  File: {predictions_path}")
         else:
-            logger.error("❌ ML Pipeline failed")
-            return False
-            
+            logger.warning(f"[WARNING] Predictions file not found: {predictions_path}")
+
+        return True
+
     except subprocess.CalledProcessError as e:
-        logger.error(f"❌ ML Pipeline failed with return code {e.returncode}")
+        logger.error(f"[ERROR] ML Pipeline failed at step with return code {e.returncode}")
         return False
     except Exception as e:
-        logger.error(f"❌ Error running ML Pipeline: {e}")
+        logger.error(f"[ERROR] Error running ML Pipeline: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -173,7 +215,7 @@ def run_business_modules(args):
     # Check if forecasts file exists
     forecasts_path = Path(args.forecasts)
     if not forecasts_path.exists():
-        logger.error(f"❌ Forecasts file not found: {forecasts_path}")
+        logger.error(f"[ERROR] Forecasts file not found: {forecasts_path}")
         logger.info("Please run ML pipeline first or specify correct path with --forecasts")
         return False
     
@@ -206,8 +248,8 @@ def run_business_modules(args):
         
         if result.returncode == 0:
             logger.info("\n" + "=" * 70)
-            logger.info("✅ BUSINESS MODULES COMPLETED SUCCESSFULLY")
-            logger.info(f"⏱️  Duration: {duration:.1f} seconds ({duration/60:.1f} minutes)")
+            logger.info("[PASS] BUSINESS MODULES COMPLETED SUCCESSFULLY")
+            logger.info(f"[TIME] Duration: {duration:.1f} seconds ({duration/60:.1f} minutes)")
             logger.info("=" * 70)
             
             # Check output files
@@ -223,20 +265,20 @@ def run_business_modules(args):
                 if file_path.exists():
                     import pandas as pd
                     df = pd.read_csv(file_path)
-                    logger.info(f"  ✓ {module_name}: {len(df):,} records → {file_path}")
+                    logger.info(f"  [OK] {module_name}: {len(df):,} records → {file_path}")
                 else:
                     logger.warning(f"  ⚠ {module_name}: File not found → {file_path}")
             
             return True
         else:
-            logger.error("❌ Business Modules failed")
+            logger.error("[ERROR] Business Modules failed")
             return False
             
     except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Business Modules failed with return code {e.returncode}")
+        logger.error(f"[ERROR] Business Modules failed with return code {e.returncode}")
         return False
     except Exception as e:
-        logger.error(f"❌ Error running Business Modules: {e}")
+        logger.error(f"[ERROR] Error running Business Modules: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -252,11 +294,11 @@ def generate_summary_report(args, ml_success: bool, business_success: bool, tota
     logger.info("")
     
     logger.info("Pipeline Stages:")
-    logger.info(f"  {'✅' if ml_success else '❌'} Module 1: ML Pipeline (Demand Forecasting)")
+    logger.info(f"  {'[PASS]' if ml_success else '[ERROR]'} Module 1: ML Pipeline (Demand Forecasting)")
     if not args.ml_only:
-        logger.info(f"  {'✅' if business_success else '❌'} Module 2: Inventory Optimization")
-        logger.info(f"  {'✅' if business_success else '❌'} Module 3: Dynamic Pricing")
-        logger.info(f"  {'✅' if business_success else '❌'} Module 4: LLM Insights")
+        logger.info(f"  {'[PASS]' if business_success else '[ERROR]'} Module 2: Inventory Optimization")
+        logger.info(f"  {'[PASS]' if business_success else '[ERROR]'} Module 3: Dynamic Pricing")
+        logger.info(f"  {'[PASS]' if business_success else '[ERROR]'} Module 4: LLM Insights")
     
     logger.info("")
     
@@ -273,7 +315,7 @@ def generate_summary_report(args, ml_success: bool, business_success: bool, tota
     
     for name, path in ml_outputs:
         if Path(path).exists():
-            logger.info(f"  ✓ {name}: {path}")
+            logger.info(f"  [OK] {name}: {path}")
     
     # Business module outputs
     if not args.ml_only:
@@ -285,7 +327,7 @@ def generate_summary_report(args, ml_success: bool, business_success: bool, tota
         
         for name, path in business_outputs:
             if path.exists():
-                logger.info(f"  ✓ {name}: {path}")
+                logger.info(f"  [OK] {name}: {path}")
     
     logger.info("")
     
@@ -300,7 +342,7 @@ def generate_summary_report(args, ml_success: bool, business_success: bool, tota
         logger.info("  4. View LLM insights: reports/llm_insights.csv")
         logger.info("  5. Open dashboard: reports/dashboard/forecast_dashboard.html")
     else:
-        logger.warning("⚠️ Pipeline completed with errors. Please check logs above.")
+        logger.warning("[WARNING] Pipeline completed with errors. Please check logs above.")
     
     logger.info("=" * 70)
 
@@ -312,21 +354,18 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Full end-to-end pipeline với full data
+  # Full end-to-end pipeline với full data (step-by-step)
   python run_end_to_end.py --full-data
-  
+
   # Quick test với 10% sample
   python run_end_to_end.py --full-data --sample 0.1
-  
-  # Chạy với v2 orchestrator (có GX validation)
-  python run_end_to_end.py --full-data --use-v2
-  
-  # Chỉ chạy ML pipeline
+
+  # Chỉ chạy ML pipeline (từng bước)
   python run_end_to_end.py --full-data --ml-only
-  
+
   # Chỉ chạy business modules (cần có forecasts từ trước)
   python run_end_to_end.py --business-only --forecasts reports/predictions_test_set.csv
-  
+
   # Không dùng LLM API
   python run_end_to_end.py --full-data --no-llm
         """
@@ -392,7 +431,7 @@ Examples:
     args.start_time = datetime.now()
     
     # Print header
-    print_banner("🚀 SMARTGROCY END-TO-END PIPELINE", "=")
+    print_banner("[START] SMARTGROCY END-TO-END PIPELINE", "=")
     logger.info(f"Start Time: {args.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"Configuration:")
     logger.info(f"  Full Data: {args.full_data}")
@@ -407,7 +446,7 @@ Examples:
     if not args.business_only:
         prereq_ok = check_prerequisites()
         if not prereq_ok:
-            logger.warning("\n⚠️ Some prerequisites not met. Pipeline may fail.")
+            logger.warning("\n[WARNING] Some prerequisites not met. Pipeline may fail.")
             user_input = input("Continue anyway? (y/N): ")
             if user_input.lower() != 'y':
                 logger.info("Pipeline cancelled by user.")
@@ -424,7 +463,7 @@ Examples:
         ml_success = run_ml_pipeline(args)
         
         if not ml_success:
-            logger.error("\n❌ ML Pipeline failed. Stopping execution.")
+            logger.error("\n[ERROR] ML Pipeline failed. Stopping execution.")
             if not args.ml_only:
                 logger.info("Business modules require successful ML pipeline.")
             sys.exit(1)
@@ -435,10 +474,10 @@ Examples:
             business_success = run_business_modules(args)
             
             if not business_success:
-                logger.warning("\n⚠️ Business Modules failed or incomplete.")
+                logger.warning("\n[WARNING] Business Modules failed or incomplete.")
                 logger.warning("ML Pipeline completed successfully, but business modules had issues.")
         else:
-            logger.warning("⚠️ Skipping business modules due to ML pipeline failure")
+            logger.warning("[WARNING] Skipping business modules due to ML pipeline failure")
     
     # Generate summary
     total_duration = time.time() - total_start_time
@@ -457,10 +496,10 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        logger.warning("\n⚠️ Pipeline interrupted by user (Ctrl+C)")
+        logger.warning("\n[WARNING] Pipeline interrupted by user (Ctrl+C)")
         sys.exit(130)
     except Exception as e:
-        logger.error(f"\n❌ Unexpected error: {e}")
+        logger.error(f"\n[ERROR] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

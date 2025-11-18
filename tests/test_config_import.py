@@ -14,15 +14,20 @@ print(f"Python path (first 3): {sys.path[:3]}")
 
 try:
     from src.config import (
-        setup_project_path, setup_logging, ensure_directories,
-        OUTPUT_FILES, TRAINING_CONFIG, get_dataset_config, PROJECT_ROOT as PR
+        OUTPUT_FILES,
+        TRAINING_CONFIG,
+        ensure_directories,
+        get_dataset_config,
+        setup_logging,
+        setup_project_path,
     )
-    print(f"✓ Config imported successfully!")
+    from src.config import PROJECT_ROOT as PR
+    print("✓ Config imported successfully!")
     print(f"  Project root from config: {PR}")
     print(f"  Active dataset: {get_dataset_config()['name']}")
     print(f"  Quantiles: {TRAINING_CONFIG['quantiles']}")
     print(f"  Model types: {TRAINING_CONFIG.get('model_types', ['lightgbm'])}")
-    print(f"  Output files:")
+    print("  Output files:")
     for key, path in OUTPUT_FILES.items():
         if isinstance(path, Path):
             print(f"    {key}: {path}")

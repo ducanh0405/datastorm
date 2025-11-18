@@ -1,0 +1,50 @@
+{
+  "model_metrics": {
+    "status": "valid",
+    "metrics": {
+      "q05_pinball_loss": 0.04663505586192434,
+      "q05_mae": 0.7500734789542203,
+      "q05_rmse": 1.1960449388376204,
+      "q05_mape": 20452617683816.387,
+      "q25_pinball_loss": 0.14674213309390857,
+      "q25_mae": 0.4616445830257195,
+      "q25_rmse": 0.7714646349436705,
+      "q25_mape": 61485386824768.83,
+      "q50_pinball_loss": 0.19185717122574097,
+      "q50_mae": 0.38371434245148195,
+      "q50_rmse": 0.6527468064982089,
+      "q50_mape": 104047846679229.45,
+      "q75_pinball_loss": 0.16264710428352763,
+      "q75_mae": 0.4376170237241771,
+      "q75_rmse": 0.7158247788504046,
+      "q75_mape": 158038510002773.2,
+      "q95_pinball_loss": 0.0611600259819636,
+      "q95_mae": 0.7607423451715722,
+      "q95_rmse": 1.1113354631939454,
+      "q95_mape": 255908903356618.28,
+      "coverage_90%": 0.8703255555555556,
+      "r2_score": 0.8567729332448899
+    },
+    "warnings": [
+      "Market KPIs file not found - may use estimates"
+    ]
+  },
+  "business_kpis": {
+    "status": "warning",
+    "source": "estimated"
+  },
+  "predictions": {
+    "status": "valid",
+    "num_predictions": 900000,
+    "mean_forecast": 1.0669149784645453
+  },
+  "summary": {
+    "total_errors": 0,
+    "total_warnings": 1,
+    "status": "PASS",
+    "all_errors": [],
+    "all_warnings": [
+      "Market KPIs file not found - may use estimates"
+    ]
+  }
+}

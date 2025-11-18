@@ -17,26 +17,42 @@ Usage:
 Author: SmartGrocy Team
 Date: 2025-11-16
 """
-import logging
-import time
-import sys
 import json
+import logging
+import sys
+import time
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
-import pandas as pd
-from datetime import datetime, timedelta
+from typing import Any
 
-from src.pipelines._00_modern_orchestrator_v2 import gx_validator  # pyright: ignore[reportMissingImports]
+import pandas as pd
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# Check if Great Expectations is available for enhanced validation
+try:
+    from great_expectations.core.expectation_validation_result import (
+        validate_dataframe,  # pyright: ignore[reportMissingImports]
+    )
+    from great_expectations.data_context import (
+        BaseDataContext,  # pyright: ignore[reportMissingImports]
+    )
+    gx_validator = True
+    logger.info("Great Expectations available - enhanced validation enabled")
+except ImportError:
+    gx_validator = False
+    logger.info("Great Expectations not available - basic validation only")
 
 try:
     from prefect import flow, task  # pyright: ignore[reportMissingImports]
     from prefect.logging import get_run_logger  # pyright: ignore[reportMissingImports]
-    from prefect.states import Failed, Completed  # pyright: ignore[reportMissingImports]
+    from prefect.states import Completed, Failed  # pyright: ignore[reportMissingImports]
     PREFECT_AVAILABLE = True
     # Try to import cache-related features (may vary by Prefect version)
     try:
-        from prefect.tasks import task_input_hash  # pyright: ignore[reportMissingImports]
         from prefect.cache_policies import INPUTS  # pyright: ignore[reportMissingImports]
+        from prefect.tasks import task_input_hash  # pyright: ignore[reportMissingImports]
     except ImportError:
         # Fallback for newer Prefect versions
         task_input_hash = None
@@ -60,18 +76,22 @@ except ImportError:
         return logging.getLogger(__name__)
 
 from src.config import (
-    setup_project_path, setup_logging, ensure_directories,
-    OUTPUT_FILES, get_dataset_config, DATA_QUALITY_CONFIG, PROJECT_ROOT
+    OUTPUT_FILES,
+    PROJECT_ROOT,
+    ensure_directories,
+    get_dataset_config,
+    setup_logging,
+    setup_project_path,
 )
-from src.pipelines._01_load_data import load_data
 from src.features import ws0_aggregation as ws0
-from src.utils.validation import comprehensive_validation
-from src.utils.data_quality import DataQualityMonitor
+from src.pipelines._01_load_data import load_data
 from src.utils.alerting import alert_manager
-from src.utils.caching import pipeline_cache
+from src.utils.data_lineage import DataArtifact, lineage_tracker
+from src.utils.data_quality import DataQualityMonitor
+
 # Import monitoring & lineage tracking for pipeline observability
 from src.utils.performance_monitor import performance_monitor
-from src.utils.data_lineage import lineage_tracker, DataArtifact, PipelineStep
+from src.utils.validation import comprehensive_validation
 
 setup_project_path()
 setup_logging()
@@ -84,7 +104,7 @@ quality_monitor = DataQualityMonitor()
 
 
 @task(retries=3, retry_delay_seconds=60)
-def load_and_validate_data(dataset_config: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
+def load_and_validate_data(dataset_config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """
     Load data with caching and validation.
 
@@ -159,8 +179,8 @@ def load_and_validate_data(dataset_config: Dict[str, Any]) -> Dict[str, pd.DataF
 
 
 @task(retries=2)
-def create_master_dataframe(dataframes: Dict[str, pd.DataFrame],
-                          dataset_config: Dict[str, Any]) -> pd.DataFrame:
+def create_master_dataframe(dataframes: dict[str, pd.DataFrame],
+                          dataset_config: dict[str, Any]) -> pd.DataFrame:
     """
     Create master dataframe from loaded data.
 
@@ -224,7 +244,7 @@ def create_master_dataframe(dataframes: Dict[str, pd.DataFrame],
 
 @task(retries=2, retry_delay_seconds=30)
 def enrich_features(master_df: pd.DataFrame,
-                   dataset_config: Dict[str, Any]) -> pd.DataFrame:
+                   dataset_config: dict[str, Any]) -> pd.DataFrame:
     """
     Enrich features from all workstreams.
 
@@ -350,7 +370,7 @@ def enrich_features(master_df: pd.DataFrame,
 
 @task(retries=1)
 def train_models(enriched_df: pd.DataFrame,
-                dataset_config: Dict[str, Any]) -> Dict[str, Any]:
+                dataset_config: dict[str, Any]) -> dict[str, Any]:
     """
     Train models.
 
@@ -386,7 +406,7 @@ def train_models(enriched_df: pd.DataFrame,
         # Load metrics
         metrics_path = OUTPUT_FILES['model_metrics']
         if metrics_path.exists():
-            with open(metrics_path, 'r') as f:
+            with open(metrics_path) as f:
                 metrics = json.load(f)
 
             # Log metrics
@@ -394,7 +414,7 @@ def train_models(enriched_df: pd.DataFrame,
             for model_type, model_metrics in metrics.items():
                 logger.info(f"  {model_type.upper()}:")
                 for metric_name, value in list(model_metrics.items())[:5]:  # First 5 metrics
-                    if isinstance(value, (int, float)):
+                    if isinstance(value, int | float):
                         logger.info(f"    {metric_name}: {value:.4f}")
 
         elapsed = time.time() - start_time
@@ -409,7 +429,7 @@ def train_models(enriched_df: pd.DataFrame,
         raise PipelineError(f"Model training failed: {e}", stage="train_models", original_error=e)
 
 
-def generate_quality_summary(report_path: Path, data_docs_path: Optional[Path]) -> None:
+def generate_quality_summary(report_path: Path, data_docs_path: Path | None) -> None:
     """
     Generate comprehensive quality summary report.
 
@@ -428,27 +448,27 @@ def generate_quality_summary(report_path: Path, data_docs_path: Optional[Path]) 
     model_metrics_path = OUTPUT_FILES['model_metrics']
     if model_metrics_path.exists():
         try:
-            with open(model_metrics_path, 'r') as f:
+            with open(model_metrics_path) as f:
                 metrics = json.load(f)
 
             # R² Score
             r2 = metrics.get('r2_score', 'N/A')
-            report_lines.append(f"R² Score: {r2:.4f}" if isinstance(r2, (int, float)) else f"R² Score: {r2}")
+            report_lines.append(f"R² Score: {r2:.4f}" if isinstance(r2, int | float) else f"R² Score: {r2}")
 
             # Coverage
             coverage = metrics.get('coverage_90%', 'N/A')
-            report_lines.append(f"Coverage (90%): {coverage:.2%}" if isinstance(coverage, (int, float)) else f"Coverage (90%): {coverage}")
+            report_lines.append(f"Coverage (90%): {coverage:.2%}" if isinstance(coverage, int | float) else f"Coverage (90%): {coverage}")
 
             # MAE và RMSE cho Q50
             q50_mae = metrics.get('q50_mae', 'N/A')
             q50_rmse = metrics.get('q50_rmse', 'N/A')
-            report_lines.append(f"MAE (Q50): {q50_mae:.4f}" if isinstance(q50_mae, (int, float)) else f"MAE (Q50): {q50_mae}")
-            report_lines.append(f"RMSE (Q50): {q50_rmse:.4f}" if isinstance(q50_rmse, (int, float)) else f"RMSE (Q50): {q50_rmse}")
+            report_lines.append(f"MAE (Q50): {q50_mae:.4f}" if isinstance(q50_mae, int | float) else f"MAE (Q50): {q50_mae}")
+            report_lines.append(f"RMSE (Q50): {q50_rmse:.4f}" if isinstance(q50_rmse, int | float) else f"RMSE (Q50): {q50_rmse}")
 
             # MAPE với cảnh báo
             q50_mape = metrics.get('q50_mape')
             if q50_mape is not None:
-                if isinstance(q50_mape, (int, float)) and q50_mape < 1000:
+                if isinstance(q50_mape, int | float) and q50_mape < 1000:
                     report_lines.append(f"MAPE (Q50): {q50_mape:.2f}%")
                 else:
                     mape_valid = metrics.get('q50_mape_valid_samples', 'N/A')
@@ -494,7 +514,7 @@ def generate_quality_summary(report_path: Path, data_docs_path: Optional[Path]) 
     validation_path = OUTPUT_FILES['reports_dir'] / 'metrics' / 'master_table_validation.json'
     if validation_path.exists():
         try:
-            with open(validation_path, 'r') as f:
+            with open(validation_path) as f:
                 validation = json.load(f)
 
             quality_score = validation.get('quality_score', 'N/A')
@@ -595,7 +615,7 @@ def generate_quality_report():
 
 
 @flow(name="SmartGrocy Pipeline")
-def modern_pipeline_flow(full_data: bool = False) -> Dict[str, Any]:
+def modern_pipeline_flow(full_data: bool = False) -> dict[str, Any]:
     """
     Modern pipeline orchestration using Prefect with GX validation.
 
@@ -664,7 +684,7 @@ def modern_pipeline_flow(full_data: bool = False) -> Dict[str, Any]:
         # Stop performance monitoring
         if performance_monitor:
             summary = performance_monitor.stop_monitoring()
-            logger.info(f"\n📊 Performance Summary:")
+            logger.info("\n📊 Performance Summary:")
             logger.info(f"  Peak Memory: {summary.get('peak_memory_mb', 0):.1f} MB")
             logger.info(f"  Avg CPU: {summary.get('avg_cpu_percent', 0):.1f}%")
 

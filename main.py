@@ -27,7 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 def run_pipeline(args):
     """Run the main pipeline"""
-    cmd = [sys.executable, 'run_pipeline.py']
+    cmd = [sys.executable, '-m', 'src.pipelines._00_modern_orchestrator']
     if args.full_data:
         cmd.append('--full-data')
     if args.sample:

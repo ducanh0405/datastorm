@@ -4,14 +4,15 @@ Caching Layer for Pipeline Optimization
 Provides intelligent caching for expensive operations with disk persistence.
 Supports incremental processing and memory-efficient operations.
 """
-import logging
 import hashlib
-import pickle
-from pathlib import Path
-from typing import Any, Dict, Optional, Callable, List
+import logging
+from collections.abc import Callable
 from functools import wraps
-import pandas as pd
+from pathlib import Path
+from typing import Any
+
 import diskcache as dc
+import pandas as pd
 
 from src.config import PROJECT_ROOT
 
@@ -23,7 +24,7 @@ class PipelineCache:
     Intelligent caching system for pipeline operations.
     """
 
-    def __init__(self, cache_dir: Optional[Path] = None, max_size_gb: float = 10.0):
+    def __init__(self, cache_dir: Path | None = None, max_size_gb: float = 10.0):
         """
         Initialize cache system.
 
@@ -95,7 +96,7 @@ class PipelineCache:
             logger.warning(f"Cache get error: {e}")
             return None
 
-    def set(self, key: str, value: Any, expire: Optional[int] = None):
+    def set(self, key: str, value: Any, expire: int | None = None):
         """
         Store item in cache.
 
@@ -162,7 +163,7 @@ class PipelineCache:
         except Exception as e:
             logger.warning(f"Cache clear error: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -197,7 +198,7 @@ class IncrementalProcessor:
         self.cache = cache
         self.processing_state = {}
 
-    def get_processing_state(self, dataset_name: str) -> Dict[str, Any]:
+    def get_processing_state(self, dataset_name: str) -> dict[str, Any]:
         """
         Get processing state for a dataset.
 
@@ -220,7 +221,7 @@ class IncrementalProcessor:
 
         return state
 
-    def update_processing_state(self, dataset_name: str, updates: Dict[str, Any]):
+    def update_processing_state(self, dataset_name: str, updates: dict[str, Any]):
         """
         Update processing state for a dataset.
 
@@ -362,7 +363,7 @@ class IncrementalProcessor:
         except Exception as e:
             logger.warning(f"Failed to clear old chunks: {e}")
 
-    def get_incremental_stats(self, dataset_name: str) -> Dict[str, Any]:
+    def get_incremental_stats(self, dataset_name: str) -> dict[str, Any]:
         """
         Get incremental processing statistics for a dataset.
 

@@ -43,37 +43,54 @@ class ReportMetricsValidator:
     def validate_model_metrics(self) -> Dict:
         """Validate model performance metrics."""
         logger.info("Validating model metrics...")
-        
+
         metrics_file = Path('reports/metrics/model_metrics.json')
-        
+
         if not metrics_file.exists():
             self.errors.append("Model metrics file not found")
             return {'status': 'error', 'message': 'File not found'}
-        
+
         with open(metrics_file, 'r') as f:
             metrics = json.load(f)
-        
-        # Validate structure
+
+        # The metrics are stored in flat structure with prefixed keys
+        # e.g., "q05_mae", "q05_rmse", "q25_mae", etc.
         required_quantiles = ['q05', 'q25', 'q50', 'q75', 'q95']
+        required_metrics = ['mae', 'rmse']
+
+        # Check for required quantile metrics
         for q in required_quantiles:
-            if q not in metrics:
-                self.errors.append(f"Missing quantile: {q}")
-        
-        # Validate MAE values
-        for q in required_quantiles:
-            if q in metrics and 'mae' in metrics[q]:
-                mae = metrics[q]['mae']
-                if mae < 0 or mae > 100:
-                    self.warnings.append(f"{q} MAE unusual: {mae}")
-        
-        # Validate R2 score
-        if 'q50' in metrics and 'r2_score' in metrics['q50']:
-            r2 = metrics['q50']['r2_score']
+            for metric in required_metrics:
+                key = f"{q}_{metric}"
+                if key not in metrics:
+                    self.errors.append(f"Missing metric: {key}")
+                else:
+                    value = metrics[key]
+                    if value < 0:
+                        self.errors.append(f"Invalid {key}: {value} (negative)")
+                    elif metric == 'mae' and value > 100:
+                        self.warnings.append(f"{key} unusually high: {value}")
+
+        # Validate R2 score (stored as "r2_score" key)
+        if 'r2_score' in metrics:
+            r2 = metrics['r2_score']
             if r2 < 0 or r2 > 1:
                 self.errors.append(f"Invalid R2 score: {r2}")
             elif r2 < 0.7:
                 self.warnings.append(f"Low R2 score: {r2:.3f}")
-        
+        else:
+            self.errors.append("Missing R2 score")
+
+        # Validate coverage (stored as "coverage_90%" key)
+        if 'coverage_90%' in metrics:
+            coverage = metrics['coverage_90%']
+            if coverage < 0 or coverage > 1:
+                self.errors.append(f"Invalid coverage: {coverage}")
+            elif coverage < 0.8:
+                self.warnings.append(f"Low coverage: {coverage:.1%}")
+        else:
+            self.warnings.append("Coverage metric not found")
+
         return {
             'status': 'valid' if not self.errors else 'error',
             'metrics': metrics,
@@ -206,7 +223,7 @@ def main():
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
     
-    logger.info(f"\n✓ Validation report saved: {output_file}")
+    logger.info(f"\n[SUCCESS] Validation report saved: {output_file}")
     
     # Exit code
     sys.exit(0 if results['summary']['status'] == 'PASS' else 1)

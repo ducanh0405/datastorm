@@ -1,0 +1,28 @@
+{
+  "model_performance": {
+    "mae_q50": 0,
+    "rmse_q50": 0,
+    "r2_score": 0,
+    "forecast_accuracy_pct": 0
+  },
+  "inventory_optimization": {
+    "total_products": 10,
+    "products_need_reorder": 0,
+    "avg_stockout_risk": 0,
+    "avg_safety_stock": 1.4171561658686191,
+    "high_risk_products": 0
+  },
+  "pricing_optimization": {
+    "total_products": 20,
+    "products_with_discount": 20,
+    "avg_discount_pct": 8.475780780625222,
+    "total_revenue_impact": 0
+  },
+  "generated_at": "2025-11-18T10:58:52.273435",
+  "aggregate": {
+    "total_products_analyzed": 10,
+    "forecast_accuracy": 0,
+    "reorder_recommendations": 0,
+    "pricing_adjustments": 20
+  }
+}
