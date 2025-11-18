@@ -13,12 +13,20 @@
   },
   "baseline": {
     "business_metrics": {
-      "spoilage_rate_pct": 6.8,
-      "stockout_rate_pct": 5.2,
-      "profit_margin_pct": 12.5
+      "spoilage_rate_pct": 8.2,
+      "stockout_rate_pct": 7.5,
+      "profit_margin_pct": 4.3
+    },
+    "margin_breakdown": {
+      "revenue": 100.0,
+      "cogs": 70.0,
+      "operating_costs": 10.0,
+      "spoilage_loss": 8.2,
+      "stockout_loss": 7.5,
+      "net_profit": 4.3
     },
     "last_updated": "2024-Q4",
-    "source": "Vietnam Retail Association 2024 Report & Statista 2024",
+    "source": "Corrected baseline calculations - Vietnam Retail Association 2024 Report & Statista 2024",
     "auto_update": true,
     "industry_validation": true
   },

@@ -166,18 +166,23 @@ class QuantileForecaster:
                 if col in self.categorical_categories and self.categorical_categories[col]:
                     categories = self.categorical_categories[col]
                     try:
-                        X.loc[:, col] = X[col].astype('category')
+                        # Ensure column is category dtype first
+                        if not hasattr(X[col], 'cat'):
+                            X.loc[:, col] = X[col].astype('category')
                         X.loc[:, col] = X[col].cat.set_categories(categories)
-                    except ValueError:
+                    except (ValueError, AttributeError) as e:
                         # Nếu categories không compatible, chỉ convert to category
                         X.loc[:, col] = X[col].astype('category')
-                        logger.warning(f"Could not set categories for {col}, using default categories")
+                        logger.warning(f"Could not set categories for {col}: {e}, using default categories")
                 else:
                     X.loc[:, col] = X[col].astype('category')
 
                 # Fill missing categories với 'Unknown' nếu có
                 if X[col].isnull().any():
-                    if hasattr(X[col], 'cat') and 'Unknown' not in X[col].cat.categories:
+                    # Ensure column is category dtype before using .cat accessor
+                    if not hasattr(X[col], 'cat'):
+                        X.loc[:, col] = X[col].astype('category')
+                    if 'Unknown' not in X[col].cat.categories:
                         X.loc[:, col] = X[col].cat.add_categories(['Unknown'])
                     X.loc[:, col] = X[col].fillna('Unknown')
 

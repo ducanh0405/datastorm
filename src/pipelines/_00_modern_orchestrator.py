@@ -32,10 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Check if Great Expectations is available for enhanced validation
 try:
-    from great_expectations.core.expectation_validation_result import (
+    from great_expectations.core.expectation_validation_result import (  # pyright: ignore[reportMissingImports]  # pyright: ignore[reportMissingImports]
         validate_dataframe,  # pyright: ignore[reportMissingImports]
     )
-    from great_expectations.data_context import (
+    from great_expectations.data_context import (  # pyright: ignore[reportMissingImports]
         BaseDataContext,  # pyright: ignore[reportMissingImports]
     )
     gx_validator = True

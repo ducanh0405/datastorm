@@ -163,56 +163,8 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
     X = df_model[all_features]
     y = df_model[target_col]
 
-    # Intelligent Missing Value Handling
-    # -----------------------------------
-    # Different strategies for different feature types:
-    # 1. Lag/rolling features: fillna(0) is appropriate (missing = no historical data)
-    # 2. Weather features: should NOT be 0 (already handled in WS6 with ffill/bfill/mean)
-    # 3. Price/promotion features: should NOT be 0 (0 price is invalid)
-    # --------------------------------------------------
-
-    numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
-
-    # Features safe to fill with 0 (lag, rolling, sales-related)
-    safe_to_zero = [
-        col for col in numeric_features
-        if any(keyword in col.lower() for keyword in ['lag', 'rolling', 'sales', 'quantity', 'frequency', 'duration'])
-    ]
-
-    # Weather, price, promotion features - use forward/backward fill then mean
-    sensitive_features = [
-        col for col in numeric_features
-        if any(keyword in col.lower() for keyword in ['temperature', 'precipitation', 'humidity', 'weather', 'price', 'discount'])
-    ]
-
-    # Other numeric features - use median
-    other_features = [col for col in numeric_features if col not in safe_to_zero and col not in sensitive_features]
-
-    if safe_to_zero:
-        X.loc[:, safe_to_zero] = X[safe_to_zero].fillna(0)
-        logger.info(f"Filled {len(safe_to_zero)} lag/rolling features with 0")
-
-    if sensitive_features:
-        for col in sensitive_features:
-            if X[col].isnull().any():
-                # Forward fill -> backward fill -> mean (pandas 2.x compatible)
-                X.loc[:, col] = X[col].ffill().bfill().fillna(X[col].mean())
-        logger.info(f"Filled {len(sensitive_features)} weather/price features with ffill/bfill/mean")
-
-    if other_features:
-        for col in other_features:
-            if X[col].isnull().any():
-                X.loc[:, col] = X[col].fillna(X[col].median())
-        logger.info(f"Filled {len(other_features)} other features with median")
-
-    # Final check: any remaining NaNs fill with 0 (safety net)
-    remaining_nulls = X.isnull().sum().sum()
-    if remaining_nulls > 0:
-        logger.warning(f"Final safety net: Filling {remaining_nulls} remaining NaNs with 0")
-        X = X.fillna(0).copy()
-
-    logger.info("✅ Intelligent missing value handling complete")
-    # --------------------------------------------------
+    # NOTE: Imputation moved after train/test split to prevent data leakage
+    # See impute_after_split() function below for the actual imputation logic
 
     # Chuyển đổi categorical features sang 'category' dtype
     for col in categorical_features:
@@ -246,7 +198,106 @@ def prepare_data(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, pd.DataF
     logger.info(f"Split ratio: {len(X_train)/len(X)*100:.1f}% train / {len(X_test)/len(X)*100:.1f}% test")
     logger.info("=" * 70)
 
+    # FIXED: Perform imputation after split to prevent data leakage
+    X_train, X_test = impute_after_split(X_train, X_test, categorical_features)
+
     return X_train, X_test, y_train, y_test, all_features, categorical_features
+
+
+def impute_after_split(X_train: pd.DataFrame, X_test: pd.DataFrame, categorical_features: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Perform imputation after train/test split to prevent data leakage.
+
+    Args:
+        X_train: Training features
+        X_test: Test features
+        categorical_features: List of categorical feature names
+
+    Returns:
+        Tuple of (X_train_imputed, X_test_imputed)
+    """
+    logger.info("Performing imputation after train/test split (leakage-safe)...")
+
+    # Work on copies
+    X_train_imp = X_train.copy()
+    X_test_imp = X_test.copy()
+
+    # Get numeric features (exclude categorical)
+    numeric_features = [col for col in X_train_imp.columns if col not in categorical_features]
+
+    # Features safe to fill with 0 (lag, rolling, sales-related)
+    safe_to_zero = [
+        col for col in numeric_features
+        if any(keyword in col.lower() for keyword in ['lag', 'rolling', 'sales', 'quantity', 'frequency', 'duration'])
+    ]
+
+    # Weather, price, promotion features - use median (fit on train, transform both)
+    sensitive_features = [
+        col for col in numeric_features
+        if any(keyword in col.lower() for keyword in ['temperature', 'precipitation', 'humidity', 'weather', 'price', 'discount'])
+    ]
+
+    # Other numeric features - use median (fit on train, transform both)
+    other_features = [col for col in numeric_features if col not in safe_to_zero and col not in sensitive_features]
+
+    # 1. Safe features - fill with 0
+    if safe_to_zero:
+        X_train_imp.loc[:, safe_to_zero] = X_train_imp[safe_to_zero].fillna(0)
+        X_test_imp.loc[:, safe_to_zero] = X_test_imp[safe_to_zero].fillna(0)
+        logger.info(f"Filled {len(safe_to_zero)} lag/rolling features with 0")
+
+    # 2. Sensitive features - use median imputation (fit on train)
+    if sensitive_features:
+        for col in sensitive_features:
+            if X_train_imp[col].isnull().any():
+                train_median = X_train_imp[col].median()
+                X_train_imp.loc[:, col] = X_train_imp[col].fillna(train_median)
+                X_test_imp.loc[:, col] = X_test_imp[col].fillna(train_median)
+        logger.info(f"Filled {len(sensitive_features)} weather/price features with train median")
+
+    # 3. Other numeric features - use median imputation (fit on train)
+    if other_features:
+        for col in other_features:
+            if X_train_imp[col].isnull().any():
+                train_median = X_train_imp[col].median()
+                X_train_imp.loc[:, col] = X_train_imp[col].fillna(train_median)
+                X_test_imp.loc[:, col] = X_test_imp[col].fillna(train_median)
+        logger.info(f"Filled {len(other_features)} other features with train median")
+
+    # 4. Handle categorical features - fill with 'Unknown' if missing
+    for col in categorical_features:
+        if col in X_train_imp.columns:
+            if X_train_imp[col].isnull().any():
+                if hasattr(X_train_imp[col], 'cat') and 'Unknown' not in X_train_imp[col].cat.categories:
+                    X_train_imp.loc[:, col] = X_train_imp[col].cat.add_categories(['Unknown']).fillna('Unknown')
+                    X_test_imp.loc[:, col] = X_test_imp[col].cat.add_categories(['Unknown']).fillna('Unknown')
+                else:
+                    X_train_imp.loc[:, col] = X_train_imp[col].fillna('Unknown')
+                    X_test_imp.loc[:, col] = X_test_imp[col].fillna('Unknown')
+        if col in X_test_imp.columns:
+            if X_test_imp[col].isnull().any():
+                if hasattr(X_test_imp[col], 'cat') and 'Unknown' not in X_test_imp[col].cat.categories:
+                    X_test_imp.loc[:, col] = X_test_imp[col].cat.add_categories(['Unknown']).fillna('Unknown')
+                else:
+                    X_test_imp.loc[:, col] = X_test_imp[col].fillna('Unknown')
+
+    logger.info("Filled categorical features with 'Unknown'")
+
+    # 5. Final safety check
+    train_nulls = X_train_imp.isnull().sum().sum()
+    test_nulls = X_test_imp.isnull().sum().sum()
+
+    if train_nulls > 0:
+        logger.warning(f"Train set still has {train_nulls} NaNs, filling with 0")
+        X_train_imp = X_train_imp.fillna(0)
+
+    if test_nulls > 0:
+        logger.warning(f"Test set still has {test_nulls} NaNs, filling with 0")
+        X_test_imp = X_test_imp.fillna(0)
+
+    logger.info("✅ Leakage-safe imputation complete")
+    return X_train_imp, X_test_imp
+
 
 def create_model(model_type: str, quantile: float, categorical_features: list[str]) -> Any:
     """
@@ -667,14 +718,18 @@ def main(args=None) -> None:
     logger.info("STEP 5: SAVE ARTIFACTS")
 
     # Collect categorical categories for prediction compatibility
+    # Convert numpy types to Python types for JSON serialization
     categorical_categories = {}
     for col in cat_features:
         if col in X_train.columns and hasattr(X_train[col], 'cat'):
-            categorical_categories[col] = list(X_train[col].cat.categories)
+            categories = list(X_train[col].cat.categories)
+            # Convert numpy types to Python types
+            categorical_categories[col] = [str(x) if hasattr(x, 'item') else x for x in categories]
         else:
             # Fallback for non-categorical features that were marked as categorical
             unique_values = X_train[col].unique() if col in X_train.columns else []
-            categorical_categories[col] = list(unique_values)
+            # Convert numpy types to Python types
+            categorical_categories[col] = [str(x) if hasattr(x, 'item') else x for x in unique_values]
 
     # Save selected features (or all features if selection was skipped)
     final_features_config = {

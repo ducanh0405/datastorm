@@ -6,7 +6,7 @@ Chạy các business modules (Inventory Optimization + Dynamic Pricing)
 sau khi có forecasts từ pipeline
 
 Usage:
-    python run_business_modules.py --forecasts reports/predictions_test_set.csv
+    python run_business_modules.py --forecasts reports/predictions_test_set.parquet
     python run_business_modules.py --inventory-only
     python run_business_modules.py --pricing-only
 """
@@ -407,7 +407,7 @@ Examples:
     )
     
     parser.add_argument('--forecasts', type=str,
-                       default='reports/predictions_test_set.csv',
+                       default='reports/predictions_test_set.parquet',
                        help='Path to forecasts file (Module 1 output)')
     parser.add_argument('--inventory-only', action='store_true',
                        help='Chỉ chạy inventory optimization (Module 2)')

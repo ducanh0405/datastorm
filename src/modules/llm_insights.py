@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import stats  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger(__name__)
 

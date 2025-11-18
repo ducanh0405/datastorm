@@ -2,30 +2,35 @@
     "all_features": [
         "sales_quantity_lag_1",
         "sales_quantity_lag_24",
-        "sales_quantity_lag_48",
-        "sales_quantity_lag_168",
         "rolling_mean_24_lag_1",
+        "day_of_week",
+        "sales_quantity_lag_48",
         "rolling_std_24_lag_1",
-        "rolling_mean_168_lag_1",
         "rolling_std_168_lag_1",
-        "hour_of_day",
-        "day_of_week",
-        "is_morning_peak",
-        "is_evening_peak",
-        "is_weekend",
-        "hour_sin",
-        "hour_cos",
         "dow_sin",
+        "rolling_mean_168_lag_1",
         "dow_cos",
-        "latent_demand"
-    ],
-    "categorical_features": [
-        "hour_of_day",
-        "day_of_week",
-        "is_morning_peak",
-        "is_evening_peak",
         "is_weekend"
     ],
+    "categorical_features": [
+        "day_of_week",
+        "is_weekend"
+    ],
+    "categorical_categories": {
+        "day_of_week": [
+            "3",
+            "4",
+            "5",
+            "6",
+            "0",
+            "1",
+            "2"
+        ],
+        "is_weekend": [
+            "0",
+            "1"
+        ]
+    },
     "quantiles": [
         0.05,
         0.25,
@@ -36,5 +41,6 @@
     "model_types": [
         "lightgbm"
     ],
-    "dataset_trained_on": "FreshRetailNet-50K"
+    "dataset_trained_on": "FreshRetailNet-50K",
+    "feature_selection_enabled": true
 }
